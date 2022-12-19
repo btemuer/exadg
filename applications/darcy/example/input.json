@@ -1,0 +1,15 @@
+{
+  "General" : {
+    "Precision": "float",
+    "Dim": "2"
+  },
+  "Application": {
+    "BoundaryConditionType": "VelocityInflow",
+    "ApplySymmetryBC": "true"
+  },
+  "Output": {
+    "OutputDirectory" : "output/darcy/",
+    "OutputName" : "darcy",
+    "WriteOutput" : "true"
+  }
+}
