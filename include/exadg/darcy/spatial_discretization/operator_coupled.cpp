@@ -24,8 +24,8 @@
 
 // ExaDG
 #include <exadg/darcy/spatial_discretization/operator_coupled.h>
-
-
+#include <exadg/poisson/spatial_discretization/laplace_operator.h>
+#include <exadg/solvers_and_preconditioners/preconditioners/inverse_mass_preconditioner.h>
 
 namespace ExaDG
 {
@@ -52,6 +52,8 @@ OperatorCoupled<dim, Number>::OperatorCoupled(
     pcout_(std::cout, dealii::Utilities::MPI::this_mpi_process(mpi_comm) == 0)
 {
   pcout_ << std::endl << "Construct Darcy operator ..." << std::endl << std::flush;
+
+  initialize_boundary_descriptor_laplace();
 
   distribute_dofs();
 
@@ -157,7 +159,23 @@ OperatorCoupled<dim, Number>::initialize_solver()
   linear_operator_.initialize(*this);
 
   // setup linear solver
-  if(param_.solver_coupled == IncNS::SolverCoupled::FGMRES)
+  if(param_.solver_coupled == IncNS::SolverCoupled::GMRES)
+  {
+    Krylov::SolverDataGMRES solver_data;
+    solver_data.max_iter             = this->param_.solver_data_coupled.max_iter;
+    solver_data.solver_tolerance_abs = this->param_.solver_data_coupled.abs_tol;
+    solver_data.solver_tolerance_rel = this->param_.solver_data_coupled.rel_tol;
+    solver_data.max_n_tmp_vectors    = this->param_.solver_data_coupled.max_krylov_size;
+    solver_data.compute_eigenvalues  = false;
+
+    if(this->param_.preconditioner_coupled != IncNS::PreconditionerCoupled::None)
+      solver_data.use_preconditioner = true;
+
+    linear_solver_ = std::make_shared<
+      Krylov::SolverGMRES<LinearOperatorCoupled<dim, Number>, Preconditioner, BlockVectorType>>(
+      linear_operator_, block_preconditioner_, solver_data, mpi_comm_);
+  }
+  else if(param_.solver_coupled == IncNS::SolverCoupled::FGMRES)
   {
     Krylov::SolverDataFGMRES solver_data;
     solver_data.max_iter             = param_.solver_data_coupled.max_iter;
@@ -165,8 +183,8 @@ OperatorCoupled<dim, Number>::initialize_solver()
     solver_data.solver_tolerance_rel = param_.solver_data_coupled.rel_tol;
     solver_data.max_n_tmp_vectors    = param_.solver_data_coupled.max_krylov_size;
 
-    // if(param_.preconditioner_coupled != IncNS::PreconditionerCoupled::None)
-    solver_data.use_preconditioner = false;
+    if(param_.preconditioner_coupled != IncNS::PreconditionerCoupled::None)
+      solver_data.use_preconditioner = true;
 
     linear_solver_ = std::make_shared<
       Krylov::SolverFGMRES<LinearOperatorCoupled<dim, Number>, Preconditioner, BlockVectorType>>(
@@ -230,6 +248,13 @@ OperatorCoupled<dim, Number>::rhs(OperatorCoupled::BlockVectorType & dst) const
 }
 
 template<int dim, typename Number>
+dealii::MatrixFree<dim, Number> const &
+OperatorCoupled<dim, Number>::get_matrix_free() const
+{
+  return *matrix_free_;
+}
+
+template<int dim, typename Number>
 unsigned int
 OperatorCoupled<dim, Number>::get_dof_index_velocity() const
 {
@@ -284,6 +309,13 @@ dealii::types::global_dof_index
 OperatorCoupled<dim, Number>::get_number_of_dofs() const
 {
   return dof_handler_u_.n_dofs() + dof_handler_p_.n_dofs();
+}
+
+template<int dim, typename Number>
+void
+OperatorCoupled<dim, Number>::initialize_vector_pressure(VectorType & src) const
+{
+  matrix_free_->initialize_dof_vector(src, get_dof_index_pressure());
 }
 
 template<int dim, typename Number>
@@ -345,7 +377,7 @@ OperatorCoupled<dim, Number>::update_block_preconditioner()
   preconditioner_velocity_block_->update();
 
   // Pressure / Schur-complement block
-  // Do nothing (no ALE)...?
+  // Do nothing (no ALE)...
 }
 
 template<int dim, typename Number>
@@ -364,23 +396,129 @@ OperatorCoupled<dim, Number>::apply_block_preconditioner(
      */
 
     // Preconditioner for the pressure / Schur-complement block
+
+    /*
+     *         / I      0    \
+     *  temp = |             | * src
+     *         \ 0   -S^{-1} /
+     */
     {
-      /*
-       *         / I      0    \
-       *  temp = |             | * src
-       *         \ 0   -S^{-1} /
-       */
       apply_preconditioner_pressure_block(dst.block(1), src.block(1));
     }
 
     // Preconditioner for the velocity / momentum block
+    /*
+     *        / A^{-1}  0 \
+     *  dst = |           | * temp
+     *        \   0     I /
+     */
     {
-      /*
-       *        / A^{-1}  0 \
-       *  dst = |           | * temp
-       *        \   0     I /
-       */
-      apply_preconditioner_velocity_block(dst.block(0), src.block(1));
+      apply_preconditioner_velocity_block(dst.block(0), src.block(0));
+    }
+  }
+  else if(type == IncNS::PreconditionerCoupled::BlockTriangular)
+  {
+    /*
+     *                         / A^{-1}  0 \   / I  B^{T} \   / I      0    \
+     *  -> P_triangular^{-1} = |           | * |          | * |             |
+     *                         \   0     I /   \ 0   -I   /   \ 0   -S^{-1} /
+     */
+
+    /*
+     *        / I      0    \
+     *  dst = |             | * src
+     *        \ 0   -S^{-1} /
+     */
+    {
+      // For the velocity block simply copy data from src to dst
+      dst.block(0) = src.block(0);
+      // Apply preconditioner for the pressure/Schur-complement block
+      apply_preconditioner_pressure_block(dst.block(1), src.block(1));
+    }
+
+    /*
+     *        / I  B^{T} \
+     *  dst = |          | * dst
+     *        \ 0   -I   /
+     */
+    {
+      // Apply gradient operator and add to dst vector.
+      gradient_operator_.apply_add(dst.block(0), dst.block(1));
+      dst.block(1) *= -1.0;
+    }
+
+    /*
+     *        / A^{-1}  0 \
+     *  dst = |           | * dst
+     *        \   0     I /
+     */
+    {
+      // Copy data from dst.block(0) to vec_tmp_velocity before
+      // applying the preconditioner for the velocity block.
+      vec_tmp_velocity_ = dst.block(0);
+      // Apply preconditioner for velocity/momentum block.
+      apply_preconditioner_velocity_block(dst.block(0), vec_tmp_velocity_);
+    }
+  }
+  else if(type == IncNS::PreconditionerCoupled::BlockTriangularFactorization)
+  {
+    /*
+     *                          / I  - A^{-1} B^{T} \   / I      0    \   / I   0 \   / A^{-1} 0 \
+     *  -> P_tria-factor^{-1} = |                   | * |             | * |       | * |          |
+     *                          \ 0          I      /   \ 0   -S^{-1} /   \ B  -I /   \   0    I /
+     */
+
+    /*
+     *        / A^{-1}  0 \
+     *  dst = |           | * src
+     *        \   0     I /
+     */
+    {
+      // For the pressure block simply copy data from src to dst
+      dst.block(1) = src.block(1);
+      // Apply preconditioner for velocity/momentum block
+      apply_preconditioner_velocity_block(dst.block(0), src.block(0));
+    }
+
+    /*
+     *        / I   0 \
+     *  dst = |       | * dst
+     *        \ B  -I /
+     */
+    {
+      // Note that B represents NEGATIVE divergence operator, i.e.,
+      // applying -B is equal to applying the divergence operator
+      divergence_operator_.apply_add(dst.block(1), dst.block(0));
+      dst.block(1) *= -1.0;
+    }
+
+    /*
+     *        / I      0    \
+     *  dst = |             | * dst
+     *        \ 0   -S^{-1} /
+     */
+    {
+      // Copy data from dst.block(1) to vec_tmp_pressure before
+      // applying the preconditioner for the pressure block.
+      vec_tmp_pressure_ = dst.block(1);
+      // Apply preconditioner for pressure/Schur-complement block
+      apply_preconditioner_pressure_block(dst.block(1), vec_tmp_pressure_);
+    }
+
+    /*
+     *        / I  - A^{-1} B^{T} \
+     *  dst = |                   | * dst
+     *        \ 0          I      /
+     */
+    {
+      // vec_tmp_velocity = B^{T} * dst(1)
+      gradient_operator_.apply(vec_tmp_velocity_, dst.block(1));
+
+      // vec_tmp_velocity_2 = A^{-1} * vec_tmp_velocity
+      apply_preconditioner_velocity_block(vec_tmp_velocity_2_, vec_tmp_velocity_);
+
+      // dst(0) = dst(0) - vec_tmp_velocity_2
+      dst.block(0).add(-1.0, vec_tmp_velocity_2_);
     }
   }
   else
@@ -395,9 +533,29 @@ OperatorCoupled<dim, Number>::initialize_block_preconditioner()
 {
   block_preconditioner_.initialize(this);
 
+  initialize_temporary_vectors();
+
   initialize_preconditioner_velocity_block();
 
   initialize_preconditioner_pressure_block();
+}
+
+template<int dim, typename Number>
+void
+OperatorCoupled<dim, Number>::initialize_temporary_vectors()
+{
+  auto type = this->param_.preconditioner_coupled;
+
+  if(type == IncNS::PreconditionerCoupled::BlockTriangular)
+  {
+    this->initialize_vector_velocity(vec_tmp_velocity_);
+  }
+  else if(type == IncNS::PreconditionerCoupled::BlockTriangularFactorization)
+  {
+    this->initialize_vector_pressure(vec_tmp_pressure_);
+    this->initialize_vector_velocity(vec_tmp_velocity_);
+    this->initialize_vector_velocity(vec_tmp_velocity_2_);
+  }
 }
 
 template<int dim, typename Number>
@@ -406,7 +564,15 @@ OperatorCoupled<dim, Number>::initialize_preconditioner_velocity_block()
 {
   auto const type = param_.preconditioner_velocity_block;
 
-  AssertThrow(type == IncNS::MomentumPreconditioner::None, dealii::ExcNotImplemented());
+  if(type == IncNS::MomentumPreconditioner::InverseMassMatrix)
+  {
+    preconditioner_velocity_block_ =
+      std::make_shared<InverseMassPreconditioner<dim, dim, Number>>(get_matrix_free(),
+                                                                    get_dof_index_velocity(),
+                                                                    get_quad_index_velocity());
+  }
+  else
+    AssertThrow(type == IncNS::MomentumPreconditioner::None, dealii::ExcNotImplemented());
 }
 
 template<int dim, typename Number>
@@ -417,7 +583,9 @@ OperatorCoupled<dim, Number>::apply_preconditioner_velocity_block(
 {
   auto const type = param_.preconditioner_velocity_block;
 
-  if(type == IncNS::MomentumPreconditioner::None)
+  if(type == IncNS::MomentumPreconditioner::InverseMassMatrix)
+    preconditioner_velocity_block_->vmult(dst, src);
+  else if(type == IncNS::MomentumPreconditioner::None)
     dst = src;
   else
     AssertThrow(false, dealii::ExcNotImplemented());
@@ -429,7 +597,61 @@ OperatorCoupled<dim, Number>::initialize_preconditioner_pressure_block()
 {
   auto const type = param_.preconditioner_pressure_block;
 
-  AssertThrow(type == IncNS::SchurComplementPreconditioner::None, dealii::ExcNotImplemented());
+  if(type == IncNS::SchurComplementPreconditioner::InverseMassMatrix)
+    preconditioner_pressure_block_ =
+      std::make_shared<InverseMassPreconditioner<dim, 1, Number>>(get_matrix_free(),
+                                                                  get_dof_index_pressure(),
+                                                                  get_quad_index_pressure());
+  else if(type == IncNS::SchurComplementPreconditioner::LaplaceOperator)
+    setup_multigrid_preconditioner_pressure_block();
+  else
+    AssertThrow(type == IncNS::SchurComplementPreconditioner::None, dealii::ExcNotImplemented());
+}
+
+template<int dim, typename Number>
+void
+OperatorCoupled<dim, Number>::setup_multigrid_preconditioner_pressure_block()
+{
+  // multigrid V-cycle for negative Laplace operator
+  Poisson::LaplaceOperatorData<0, dim> laplace_operator_data;
+  laplace_operator_data.dof_index            = get_dof_index_pressure();
+  laplace_operator_data.quad_index           = get_quad_index_pressure();
+  laplace_operator_data.operator_is_singular = false;
+  laplace_operator_data.bc                   = boundary_descriptor_laplace_;
+
+  preconditioner_pressure_block_ = std::make_shared<MultigridPoisson>(mpi_comm_);
+
+  std::shared_ptr<MultigridPoisson> mg_preconditioner =
+    std::dynamic_pointer_cast<MultigridPoisson>(preconditioner_pressure_block_);
+
+  mg_preconditioner->initialize(param_.multigrid_data_pressure_block,
+                                &get_dof_handler_p().get_triangulation(),
+                                grid_->get_coarse_triangulations(),
+                                get_dof_handler_p().get_fe(),
+                                get_mapping(),
+                                laplace_operator_data,
+                                false,
+                                laplace_operator_data.bc->dirichlet_bc,
+                                grid_->periodic_faces);
+}
+
+template<int dim, typename Number>
+void
+OperatorCoupled<dim, Number>::initialize_boundary_descriptor_laplace()
+{
+  boundary_descriptor_laplace_ = std::make_shared<Poisson::BoundaryDescriptor<0, dim>>();
+
+  // Dirichlet BCs for pressure
+  boundary_descriptor_laplace_->dirichlet_bc = boundary_descriptor_->pressure->dirichlet_bc;
+
+  // Neumann BCs for pressure: These boundary conditions are empty, fill with zero functions
+  std::for_each(boundary_descriptor_->pressure->neumann_bc.begin(),
+                boundary_descriptor_->pressure->neumann_bc.end(),
+                [this](auto boundary_id) {
+                  this->boundary_descriptor_laplace_->neumann_bc.insert(
+                    std::pair<dealii::types::boundary_id, std::shared_ptr<dealii::Function<dim>>>(
+                      boundary_id, std::make_shared<dealii::Functions::ZeroFunction<dim>>(1)));
+                });
 }
 
 template<int dim, typename Number>
@@ -440,7 +662,10 @@ OperatorCoupled<dim, Number>::apply_preconditioner_pressure_block(
 {
   auto const type = param_.preconditioner_pressure_block;
 
-  if(type == IncNS::SchurComplementPreconditioner::None)
+  if(type == IncNS::SchurComplementPreconditioner::InverseMassMatrix ||
+     type == IncNS::SchurComplementPreconditioner::LaplaceOperator)
+    preconditioner_pressure_block_->vmult(dst, src);
+  else if(type == IncNS::SchurComplementPreconditioner::None)
     dst = src;
   else
     AssertThrow(false, dealii::ExcNotImplemented())
@@ -534,7 +759,7 @@ OperatorCoupled<dim, Number>::distribute_dofs()
   {
     fe_u_ = std::make_shared<dealii::FESystem<dim>>(dealii::FE_DGQ<dim>(param_.degree_u), dim);
   }
-  else if (param_.spatial_discretization == IncNS::SpatialDiscretization::HDIV)
+  else if(param_.spatial_discretization == IncNS::SpatialDiscretization::HDIV)
   {
     fe_u_ = std::make_shared<dealii::FE_RaviartThomasNodal<dim>>(param_.degree_u - 1);
   }
@@ -548,7 +773,7 @@ OperatorCoupled<dim, Number>::distribute_dofs()
   unsigned int ndofs_per_cell_velocity;
   if(param_.spatial_discretization == IncNS::SpatialDiscretization::L2)
     ndofs_per_cell_velocity = dealii::Utilities::pow(param_.degree_u + 1, dim) * dim;
-  else if (param_.spatial_discretization == IncNS::SpatialDiscretization::HDIV)
+  else if(param_.spatial_discretization == IncNS::SpatialDiscretization::HDIV)
     ndofs_per_cell_velocity =
       dealii::Utilities::pow(param_.degree_u, dim - 1) * (param_.degree_u + 1) * dim;
   else
@@ -560,7 +785,7 @@ OperatorCoupled<dim, Number>::distribute_dofs()
   pcout_ << "Velocity:" << std::endl;
   if(param_.spatial_discretization == IncNS::SpatialDiscretization::L2)
     print_parameter(pcout_, "degree of 1D polynomials", param_.degree_u);
-  else if (param_.spatial_discretization == IncNS::SpatialDiscretization::HDIV)
+  else if(param_.spatial_discretization == IncNS::SpatialDiscretization::HDIV)
   {
     print_parameter(pcout_, "degree of 1D polynomials (normal)", param_.degree_u);
     print_parameter(pcout_, "degree of 1D polynomials (tangential)", (param_.degree_u - 1));

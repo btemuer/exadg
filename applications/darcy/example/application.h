@@ -189,7 +189,7 @@ private:
     // SPATIAL DISCRETIZATION
     this->param.spatial_discretization  = IncNS::SpatialDiscretization::L2;
     this->param.grid.triangulation_type = TriangulationType::Distributed;
-    this->param.grid.n_refine_global    = 2;
+    this->param.grid.n_refine_global    = 9;
     this->param.degree_u                = 3;
     this->param.grid.mapping_degree     = this->param.degree_u;
     this->param.degree_p                = IncNS::DegreePressure::MixedOrder;
@@ -201,14 +201,13 @@ private:
     this->param.solver_data_coupled = SolverData(1e4, 1.e-12, 1.e-6, 200);
 
     // preconditioning linear solver
-    this->param.preconditioner_coupled        = IncNS::PreconditionerCoupled::BlockDiagonal;
-    this->param.update_preconditioner_coupled = false;
+    this->param.preconditioner_coupled        = IncNS::PreconditionerCoupled::BlockTriangular;
 
     // preconditioner velocity/momentum block
-    this->param.preconditioner_velocity_block = IncNS::MomentumPreconditioner::None;
+    this->param.preconditioner_velocity_block = IncNS::MomentumPreconditioner::InverseMassMatrix;
 
     // preconditioner Schur-complement block
-    this->param.preconditioner_pressure_block = IncNS::SchurComplementPreconditioner::None;
+    this->param.preconditioner_pressure_block = IncNS::SchurComplementPreconditioner::LaplaceOperator;
   }
 
   void

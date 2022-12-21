@@ -40,6 +40,7 @@
 #include <exadg/incompressible_navier_stokes/user_interface/parameters.h>
 #include <exadg/matrix_free/matrix_free_data.h>
 #include <exadg/operators/mass_operator.h>
+#include <exadg/poisson/preconditioners/multigrid_preconditioner.h>
 #include <exadg/solvers_and_preconditioners/preconditioners/preconditioner_base.h>
 #include <exadg/solvers_and_preconditioners/solvers/iterative_solvers_dealii_wrapper.h>
 
@@ -137,6 +138,8 @@ private:
   using FaceIntegratorU = FaceIntegrator<dim, dim, Number>;
   using FaceIntegratorP = FaceIntegrator<dim, 1, Number>;
 
+  using MultigridPoisson = Poisson::MultigridPreconditioner<dim, Number, 1>;
+
 public:
   /*
    * Constructor
@@ -180,6 +183,9 @@ public:
    * Getters
    */
 
+  dealii::MatrixFree<dim, Number> const &
+  get_matrix_free() const;
+
   unsigned int
   get_dof_index_velocity() const;
 
@@ -208,6 +214,9 @@ public:
    * Initialization of vectors
    */
   void
+  initialize_vector_pressure(VectorType & src) const;
+
+  void
   initialize_vector_velocity(VectorType & src) const;
 
   void
@@ -235,6 +244,9 @@ private:
   void
   initialize_block_preconditioner();
 
+  void
+  initialize_temporary_vectors();
+
   /*
    * Velocity / Momentum block
    */
@@ -252,6 +264,12 @@ private:
 
   void
   apply_preconditioner_pressure_block(VectorType & dst, VectorType const & src) const;
+
+  void
+  setup_multigrid_preconditioner_pressure_block();
+
+  void
+  initialize_boundary_descriptor_laplace();
 
   void
   distribute_dofs();
@@ -341,14 +359,27 @@ private:
   /*
    * Preconditioner and solver for the velocity / momentum block
    */
-  std::shared_ptr<PreconditionerBase<Number>>     preconditioner_velocity_block_;
-  std::shared_ptr<Krylov::SolverBase<VectorType>> solver_velocity_block_;
+  std::shared_ptr<PreconditionerBase<Number>> preconditioner_velocity_block_;
 
   /*
    * Preconditioner and solver for the pressure / Schur-complement block
    */
-  std::shared_ptr<PreconditionerBase<Number>>     preconditioner_pressure_block_;
-  std::shared_ptr<Krylov::SolverBase<VectorType>> solver_pressure_block_;
+  std::shared_ptr<PreconditionerBase<Number>> preconditioner_pressure_block_;
+
+  /*
+   * Used for the block preconditioner (or more precisely for the Schur-complement preconditioner
+   * and the preconditioner used to approximately invert the Laplace operator)
+   *
+   * The functions specified in BoundaryDescriptorLaplace are irrelevant for a coupled solution
+   * approach (since the pressure Poisson operator is only needed for preconditioning, and hence,
+   * only the homogeneous part of the operator has to be evaluated so that the boundary conditions
+   * are never applied).
+   */
+  std::shared_ptr<Poisson::BoundaryDescriptor<0, dim>> boundary_descriptor_laplace_;
+
+  // temporary vectors that are necessary when using preconditioners of block-triangular type
+  VectorType mutable vec_tmp_pressure_;
+  VectorType mutable vec_tmp_velocity_, vec_tmp_velocity_2_;
 };
 
 } // namespace Darcy
