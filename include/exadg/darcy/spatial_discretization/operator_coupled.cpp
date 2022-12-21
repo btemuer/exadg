@@ -138,12 +138,9 @@ OperatorCoupled<dim, Number>::setup(
 
 template<int dim, typename Number>
 void
-OperatorCoupled<dim, Number>::setup_solvers(VectorType const & velocity)
+OperatorCoupled<dim, Number>::setup_solvers()
 {
   pcout_ << std::endl << "Setup Darcy solver ..." << std::endl;
-
-  momentum_operator_.set_scaling_factor_mass_operator(1.0);
-  momentum_operator_.set_velocity_ptr(velocity);
 
   initialize_block_preconditioner();
 
@@ -727,27 +724,6 @@ OperatorCoupled<dim, Number>::initialize_operators()
     data.bc                   = boundary_descriptor_->velocity;
 
     divergence_operator_.initialize(*matrix_free_, data);
-  }
-
-  // Momentum operator
-  {
-    IncNS::MomentumOperatorData<dim> data;
-
-    data.unsteady_problem   = true;
-    data.convective_problem = false;
-    data.viscous_problem    = false;
-    data.bc                 = boundary_descriptor_->velocity;
-    data.dof_index          = get_dof_index_velocity();
-    data.quad_index         = get_quad_index_velocity();
-
-    data.use_cell_based_loops = param_.use_cell_based_face_loops;
-    data.implement_block_diagonal_preconditioner_matrix_free =
-      param_.implement_block_diagonal_preconditioner_matrix_free;
-    data.solver_block_diagonal         = Elementwise::Solver::CG;
-    data.preconditioner_block_diagonal = Elementwise::Preconditioner::None;
-    data.solver_data_block_diagonal    = param_.solver_data_block_diagonal;
-
-    momentum_operator_.initialize(*matrix_free_, constraint_dummy, data);
   }
 }
 

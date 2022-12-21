@@ -101,7 +101,7 @@ Driver<dim, Number>::setup()
 
     driver_steady->setup();
 
-    pde_operator->setup_solvers(driver_steady->get_velocity());
+    pde_operator->setup_solvers();
   }
   else
     AssertThrow(false, dealii::ExcMessage("Not implemented."));

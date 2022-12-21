@@ -159,7 +159,7 @@ public:
         std::shared_ptr<MatrixFreeData<dim, Number>>     matrix_free_data);
 
   void
-  setup_solvers(VectorType const & velocity);
+  setup_solvers();
 
   /*
    * Solve the problem
@@ -329,11 +329,6 @@ private:
   IncNS::RHSOperator<dim, Number>        rhs_operator_;
   IncNS::GradientOperator<dim, Number>   gradient_operator_;
   IncNS::DivergenceOperator<dim, Number> divergence_operator_;
-
-  /*
-   * Linear momentum operator
-   */
-  mutable IncNS::MomentumOperator<dim, Number> momentum_operator_;
 
   MPI_Comm const mpi_comm_;
 
