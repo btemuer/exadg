@@ -30,16 +30,16 @@
 #include <deal.II/lac/la_parallel_vector.h>
 
 // ExaDG
+#include <exadg/darcy/spatial_discretization/operators/permeability_operator.h>
+#include <exadg/darcy/user_interface/field_functions.h>
 #include <exadg/grid/grid.h>
-#include <exadg/incompressible_navier_stokes/spatial_discretization/operators/divergence_operator.h>
+#include <exadg/darcy/spatial_discretization/operators/divergence_operator.h>
 #include <exadg/incompressible_navier_stokes/spatial_discretization/operators/gradient_operator.h>
 #include <exadg/incompressible_navier_stokes/spatial_discretization/operators/momentum_operator.h>
 #include <exadg/incompressible_navier_stokes/spatial_discretization/operators/rhs_operator.h>
 #include <exadg/incompressible_navier_stokes/user_interface/boundary_descriptor.h>
-#include <exadg/incompressible_navier_stokes/user_interface/field_functions.h>
 #include <exadg/incompressible_navier_stokes/user_interface/parameters.h>
 #include <exadg/matrix_free/matrix_free_data.h>
-#include <exadg/operators/mass_operator.h>
 #include <exadg/poisson/preconditioners/multigrid_preconditioner.h>
 #include <exadg/solvers_and_preconditioners/preconditioners/preconditioner_base.h>
 #include <exadg/solvers_and_preconditioners/solvers/iterative_solvers_dealii_wrapper.h>
@@ -146,7 +146,7 @@ public:
    */
   OperatorCoupled(std::shared_ptr<Grid<dim> const>                      grid,
                   std::shared_ptr<IncNS::BoundaryDescriptor<dim> const> boundary_descriptor,
-                  std::shared_ptr<IncNS::FieldFunctions<dim> const>     field_functions_,
+                  std::shared_ptr<FieldFunctions<dim, Number> const>    field_functions_,
                   IncNS::Parameters const &                             parameters_,
                   std::string                                           field,
                   MPI_Comm const &                                      mpi_comm);
@@ -287,7 +287,7 @@ private:
    * User interface: Boundary conditions and field functions
    */
   std::shared_ptr<IncNS::BoundaryDescriptor<dim> const> boundary_descriptor_;
-  std::shared_ptr<IncNS::FieldFunctions<dim> const>     field_functions_;
+  std::shared_ptr<FieldFunctions<dim, Number> const>    field_functions_;
 
   /*
    * List of parameters
@@ -325,10 +325,10 @@ private:
   /*
    * Basic operators
    */
-  MassOperator<dim, dim, Number>         mass_operator_;
-  IncNS::RHSOperator<dim, Number>        rhs_operator_;
-  IncNS::GradientOperator<dim, Number>   gradient_operator_;
-  IncNS::DivergenceOperator<dim, Number> divergence_operator_;
+  PermeabilityOperator<dim, Number>    permeability_operator_;
+  DivergenceOperator<dim, Number>      divergence_operator_;
+  IncNS::RHSOperator<dim, Number>      rhs_operator_;
+  IncNS::GradientOperator<dim, Number> gradient_operator_;
 
   MPI_Comm const mpi_comm_;
 

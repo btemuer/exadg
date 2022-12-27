@@ -35,7 +35,7 @@ template<int dim, typename Number>
 OperatorCoupled<dim, Number>::OperatorCoupled(
   std::shared_ptr<Grid<dim> const>                      grid,
   std::shared_ptr<IncNS::BoundaryDescriptor<dim> const> boundary_descriptor,
-  std::shared_ptr<IncNS::FieldFunctions<dim> const>     field_functions,
+  std::shared_ptr<FieldFunctions<dim, Number> const>    field_functions,
   IncNS::Parameters const &                             parameters,
   std::string                                           field,
   MPI_Comm const &                                      mpi_comm)
@@ -84,9 +84,12 @@ void
 OperatorCoupled<dim, Number>::fill_matrix_free_data(
   MatrixFreeData<dim, Number> & matrix_free_data) const
 {
-  matrix_free_data.append_mapping_flags(MassKernel<dim, Number>::get_mapping_flags());
   matrix_free_data.append_mapping_flags(
-    IncNS::Operators::DivergenceKernel<dim, Number>::get_mapping_flags());
+    Operators::PermeabilityKernel<dim, Number>::get_mapping_flags());
+
+  matrix_free_data.append_mapping_flags(
+    Operators::DivergenceKernel<dim, Number>::get_mapping_flags());
+
   matrix_free_data.append_mapping_flags(
     IncNS::Operators::GradientKernel<dim, Number>::get_mapping_flags());
 
@@ -207,17 +210,15 @@ OperatorCoupled<dim, Number>::apply(OperatorCoupled::BlockVectorType &       dst
 {
   // (0,0) block of the matrix
   {
-    mass_operator_.apply_scale(dst.block(0), 1.0, src.block(0));
+    permeability_operator_.apply(dst.block(0), src.block(0));
   }
 
   // (0,1) block of the matrix
-  // gradient operator: dst = velocity, src = pressure
   {
     gradient_operator_.apply_add(dst.block(0), src.block(1));
   }
 
   // (1,0) block of the matrix
-  // divergence operator: dst = pressure, src = velocity
   {
     divergence_operator_.apply(dst.block(1), src.block(0));
     dst.block(1) *= -1.0;
@@ -231,7 +232,6 @@ OperatorCoupled<dim, Number>::rhs(OperatorCoupled::BlockVectorType & dst) const
   // Velocity block
   {
     gradient_operator_.rhs(dst.block(0), 0.0);
-    // gradient_operator_.rhs_add(dst.block(0), 0.0);
 
     if(param_.right_hand_side)
       rhs_operator_.evaluate_add(dst.block(0), 0.0);
@@ -675,14 +675,17 @@ OperatorCoupled<dim, Number>::initialize_operators()
   dealii::AffineConstraints<Number> constraint_dummy;
   constraint_dummy.close();
 
-  // Mass operator
+  // Permeability operator
   {
-    MassOperatorData<dim> mass_operator_data;
+    PermeabilityOperatorData<dim, Number> data;
 
-    mass_operator_data.dof_index  = get_dof_index_velocity();
-    mass_operator_data.quad_index = get_quad_index_velocity();
+    data.dof_index_velocity                     = get_dof_index_velocity();
+    data.quad_index_velocity                    = get_quad_index_velocity();
+    data.kernel_data.porosity_field             = field_functions_->porosity_field;
+    data.kernel_data.inverse_permeability_field = field_functions_->inverse_permeability_field;
+    data.kernel_data.viscosity                  = param_.viscosity;
 
-    mass_operator_.initialize(*matrix_free_, constraint_u_, mass_operator_data);
+    permeability_operator_.initialize(*matrix_free_, data);
   }
 
   // Body force operator
@@ -713,15 +716,14 @@ OperatorCoupled<dim, Number>::initialize_operators()
 
   // Divergence operator
   {
-    IncNS::DivergenceOperatorData<dim> data;
+    DivergenceOperatorData<dim> data;
 
-    data.dof_index_velocity   = get_dof_index_velocity();
-    data.dof_index_pressure   = get_dof_index_pressure();
-    data.quad_index           = get_quad_index_velocity();
-    data.integration_by_parts = true;
-    data.formulation          = IncNS::FormulationVelocityDivergenceTerm::Weak;
-    data.use_boundary_data    = true;
-    data.bc                   = boundary_descriptor_->velocity;
+    data.dof_index_velocity         = get_dof_index_velocity();
+    data.dof_index_pressure         = get_dof_index_pressure();
+    data.quad_index                 = get_quad_index_velocity();
+    data.use_boundary_data          = true;
+    data.bc                         = boundary_descriptor_->velocity;
+    data.kernel_data.porosity_field = field_functions_->porosity_field;
 
     divergence_operator_.initialize(*matrix_free_, data);
   }

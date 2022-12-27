@@ -33,7 +33,7 @@
 #include <exadg/darcy/postprocessor/postprocessor.h>
 #include <exadg/grid/grid.h>
 #include <exadg/incompressible_navier_stokes/user_interface/boundary_descriptor.h>
-#include <exadg/incompressible_navier_stokes/user_interface/field_functions.h>
+#include <exadg/darcy/user_interface/field_functions.h>
 #include <exadg/incompressible_navier_stokes/user_interface/parameters.h>
 #include <exadg/utilities/output_parameters.h>
 #include <exadg/utilities/resolution_parameters.h>
@@ -104,7 +104,7 @@ public:
     verify_boundary_conditions<dim, Number>(*boundary_descriptor, *grid);
 
     // field functions
-    field_functions = std::make_shared<IncNS::FieldFunctions<dim>>();
+    field_functions = std::make_shared<FieldFunctions<dim, Number>>();
     set_field_functions();
   }
 
@@ -129,7 +129,7 @@ public:
     return boundary_descriptor;
   }
 
-  std::shared_ptr<IncNS::FieldFunctions<dim> const>
+  std::shared_ptr<FieldFunctions<dim, Number> const>
   get_field_functions() const
   {
     return field_functions;
@@ -153,7 +153,7 @@ protected:
 
   std::shared_ptr<Grid<dim>> grid;
 
-  std::shared_ptr<IncNS::FieldFunctions<dim>>     field_functions;
+  std::shared_ptr<FieldFunctions<dim, Number>>     field_functions;
   std::shared_ptr<IncNS::BoundaryDescriptor<dim>> boundary_descriptor;
 
   std::string parameter_file;

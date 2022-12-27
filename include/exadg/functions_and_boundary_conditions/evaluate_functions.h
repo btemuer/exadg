@@ -224,6 +224,71 @@ struct FunctionEvaluator<1, dim, Number>
   }
 };
 
+template<int dim, typename Number>
+struct FunctionEvaluator<2, dim, Number>
+{
+  static inline DEAL_II_ALWAYS_INLINE //
+    dealii::Tensor<2, dim, dealii::VectorizedArray<Number>>
+    value(std::shared_ptr<dealii::Function<dim>>                      function,
+          dealii::Point<dim, dealii::VectorizedArray<Number>> const & q_points,
+          double const &                                              time)
+  {
+    dealii::Tensor<2, dim, dealii::VectorizedArray<Number>> value;
+
+    for(unsigned int d1 = 0; d1 < dim; ++d1)
+    {
+      for(unsigned int d2 = 0; d2 < dim; ++d2)
+      {
+        std::array<Number, dealii::VectorizedArray<Number>::size()> array;
+        for(unsigned int v = 0; v < dealii::VectorizedArray<Number>::size(); ++v)
+        {
+          dealii::Point<dim> q_point;
+
+          for(unsigned int d = 0; d < dim; ++d)
+            q_point[d] = q_points[d][v];
+
+          function->set_time(time);
+          // Assuming row-major vector function equivalent
+          array[v] = function->value(q_point, d1 * dim + d2);
+        }
+        value[d1][d2].load(array.data());
+      }
+    }
+
+    return value;
+  }
+
+  static inline DEAL_II_ALWAYS_INLINE //
+    dealii::SymmetricTensor<2, dim, dealii::VectorizedArray<Number>>
+    value_symmetric(std::shared_ptr<dealii::Function<dim>>                      function,
+                    dealii::Point<dim, dealii::VectorizedArray<Number>> const & q_points,
+                    double const &                                              time)
+  {
+    dealii::SymmetricTensor<2, dim, dealii::VectorizedArray<Number>> value;
+
+    for(unsigned int d1 = 0; d1 < dim; ++d1)
+    {
+      for(unsigned int d2 = d1; d2 < dim; ++d2)
+      {
+        std::array<Number, dealii::VectorizedArray<Number>::size()> array;
+        for(unsigned int v = 0; v < dealii::VectorizedArray<Number>::size(); ++v)
+        {
+          dealii::Point<dim> q_point;
+
+          for(unsigned int d = 0; d < dim; ++d)
+            q_point[d] = q_points[d][v];
+
+          function->set_time(time);
+          array[v] = function->value(q_point, d1 * dim + d2);
+        }
+        value[d1][d2].load(array.data());
+      }
+    }
+
+    return value;
+  }
+};
+
 } // namespace ExaDG
 
 #endif /* INCLUDE_EVALUATEFUNCTIONS_H_ */

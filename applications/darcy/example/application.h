@@ -32,7 +32,7 @@ enum class BoundaryCondition
 };
 
 inline void
-string_to_enum(BoundaryCondition & enum_type, std::string const string_type)
+string_to_enum(BoundaryCondition & enum_type, std::string const & string_type)
 {
   // clang-format off
   if     (string_type == "VelocityInflow") enum_type = BoundaryCondition::VelocityInflow;
@@ -41,10 +41,10 @@ string_to_enum(BoundaryCondition & enum_type, std::string const string_type)
 }
 
 template<int dim>
-class AnalyticalSolutionVelocity : public dealii::Function<dim>
+class [[maybe_unused]] AnalyticalSolutionVelocity : public dealii::Function<dim>
 {
 public:
-  AnalyticalSolutionVelocity(double const inflow_velocity)
+  explicit AnalyticalSolutionVelocity(double const inflow_velocity)
     : dealii::Function<dim>(dim, 0.0), inflow_velocity(inflow_velocity)
   {
   }
@@ -65,7 +65,7 @@ private:
 };
 
 template<int dim>
-class AnalyticalSolutionPressure : public dealii::Function<dim>
+class [[maybe_unused]] AnalyticalSolutionPressure : public dealii::Function<dim>
 {
 public:
   AnalyticalSolutionPressure(double const viscosity,
@@ -99,7 +99,7 @@ template<int dim>
 class DirichletBoundaryVelocity : public dealii::Function<dim>
 {
 public:
-  DirichletBoundaryVelocity(double const inflow_velocity)
+  explicit DirichletBoundaryVelocity(double const inflow_velocity)
     : dealii::Function<dim>(dim, 0.0), inflow_velocity(inflow_velocity)
   {
   }
@@ -112,6 +112,32 @@ public:
 
 private:
   double const inflow_velocity;
+};
+
+template<int dim>
+class InversePermeabilityField : public dealii::Function<dim>
+{
+public:
+  double
+  value(dealii::Point<dim> const & /*p*/, unsigned int const component = 0) const
+  {
+    Assert(component < dim * dim,
+           dealii::ExcMessage("Trying to access a tensor coordinate out-of-bounds."));
+
+    return component % (dim + 1) == 0 ? 2.0 : 0.0;
+  }
+};
+
+template<int dim>
+class PorosityField : public dealii::Function<dim>
+{
+public:
+  double
+  value(dealii::Point<dim> const & p, unsigned int const component = 0) const
+  {
+    (void)component;
+    return 0.3 * (1.0 + p[0]);
+  }
 };
 
 template<int dim, typename Number>
@@ -177,15 +203,6 @@ private:
     // TEMPORAL DISCRETIZATION
     this->param.solver_type = IncNS::SolverType::Steady;
 
-    this->param.convergence_criterion_steady_problem =
-      IncNS::ConvergenceCriterionSteadyProblem::SolutionIncrement;
-    this->param.abs_tol_steady = 1.e-12;
-    this->param.rel_tol_steady = 1.e-6;
-
-    // output of solver information
-    // this->param.solver_info_data.interval_time =
-    //  (this->param.end_time - this->param.start_time) / 10;
-
     // SPATIAL DISCRETIZATION
     this->param.spatial_discretization  = IncNS::SpatialDiscretization::L2;
     this->param.grid.triangulation_type = TriangulationType::Distributed;
@@ -198,16 +215,17 @@ private:
 
     // linear solver
     this->param.solver_coupled      = IncNS::SolverCoupled::FGMRES;
-    this->param.solver_data_coupled = SolverData(1e4, 1.e-12, 1.e-6, 200);
+    this->param.solver_data_coupled = SolverData(1e4, 1.e-12, 1.e-8, 200);
 
     // preconditioning linear solver
-    this->param.preconditioner_coupled        = IncNS::PreconditionerCoupled::BlockTriangular;
+    this->param.preconditioner_coupled = IncNS::PreconditionerCoupled::BlockTriangular;
 
     // preconditioner velocity/momentum block
     this->param.preconditioner_velocity_block = IncNS::MomentumPreconditioner::InverseMassMatrix;
 
     // preconditioner Schur-complement block
-    this->param.preconditioner_pressure_block = IncNS::SchurComplementPreconditioner::LaplaceOperator;
+    this->param.preconditioner_pressure_block =
+      IncNS::SchurComplementPreconditioner::LaplaceOperator;
   }
 
   void
@@ -301,13 +319,21 @@ private:
   void
   set_field_functions() final
   {
-    this->field_functions->initial_solution_velocity.reset(
-      new dealii::Functions::ConstantFunction<dim>(0.0, dim));
-    this->field_functions->initial_solution_pressure.reset(
-      new dealii::Functions::ConstantFunction<dim>(0.0, 1));
-    this->field_functions->analytical_solution_pressure.reset(new AnalyticalSolutionPressure<dim>(
-      this->viscosity, this->permeability, this->inflow_velocity, this->L));
+    // Initial solution
+    {
+      this->field_functions->initial_solution_velocity.reset(
+        new dealii::Functions::ZeroFunction<dim>(dim));
+      this->field_functions->initial_solution_pressure.reset(
+        new dealii::Functions::ZeroFunction<dim>(1));
+    }
+    // RHS
     this->field_functions->right_hand_side.reset(new dealii::Functions::ZeroFunction<dim>(dim));
+
+    // Problem coefficients
+    {
+      this->field_functions->inverse_permeability_field.reset(new InversePermeabilityField<dim>());
+      this->field_functions->porosity_field.reset(new PorosityField<dim>());
+    }
   }
 
   std::shared_ptr<PostProcessor<dim, Number>>
@@ -343,9 +369,9 @@ private:
     IncNS::FormulationViscousTerm::LaplaceFormulation;
 
   double const inflow_velocity = 1.0e-3;
-  double const viscosity       = 1.0e-1;
+  double const viscosity       = 1.0;
   double const density         = 1.0e-1;
-  double const permeability    = 1.0e-9;
+  double const permeability    = 1. / 3.;
 
   double const H = 1.0;
   double const L = 1.0;
