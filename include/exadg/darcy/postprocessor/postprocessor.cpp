@@ -47,8 +47,9 @@ PostProcessor<dim, Number>::setup(DarcyOperator const & pde_operator)
 
 template<int dim, typename Number>
 void
-PostProcessor<dim, Number>::do_postprocessing(VectorType const & velocity,
-                                              VectorType const & pressure, double const time,
+PostProcessor<dim, Number>::do_postprocessing(VectorType const &     velocity,
+                                              VectorType const &     pressure,
+                                              double const           time,
                                               types::time_step const time_step_number)
 {
   /*

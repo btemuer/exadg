@@ -23,10 +23,10 @@
 #You should have received a copy of the GNU General Public License
 #along with this program.If not, see < https: // www.gnu.org/licenses/>.
 #
-  ######################################################################## #
+######################################################################## #
 
-  TARGETNAME(TARGET_NAME ${CMAKE_CURRENT_SOURCE_DIR})
+TARGETNAME(TARGET_NAME ${CMAKE_CURRENT_SOURCE_DIR})
 
-    PROJECT(${TARGET_NAME})
+PROJECT(${TARGET_NAME})
 
-      EXADG_PICKUP_EXE(solver.cpp ${TARGET_NAME} solver)
+EXADG_PICKUP_EXE(solver.cpp ${TARGET_NAME} solver)

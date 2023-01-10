@@ -49,20 +49,14 @@ Driver<dim, Number>::setup()
 
   // no mesh movement -> no ALE setup
 
-  if(application->get_parameters().solver_type == IncNS::SolverType::Steady)
-  {
-    pde_operator =
-      std::make_shared<Darcy::OperatorCoupled<dim, Number>>(application->get_grid(),
-                                                            application->get_boundary_descriptor(),
-                                                            application->get_field_functions(),
-                                                            application->get_parameters(),
-                                                            "fluid",
-                                                            mpi_comm);
-  }
-  else
-  {
-    AssertThrow(false, dealii::ExcMessage("Not implemented"));
-  }
+  pde_operator =
+    std::make_shared<Darcy::OperatorCoupled<dim, Number>>(application->get_grid(),
+                                                          application->get_boundary_descriptor(),
+                                                          application->get_field_functions(),
+                                                          application->get_parameters(),
+                                                          "fluid",
+                                                          mpi_comm);
+
 
   // Initialize matrix-free evaluation
   matrix_free_data = std::make_shared<MatrixFreeData<dim, Number>>();
@@ -91,7 +85,16 @@ Driver<dim, Number>::setup()
   postprocessor->setup(*pde_operator);
 
   // setup time integrator before calling setup_solvers()
-  if(application->get_parameters().solver_type == IncNS::SolverType::Steady)
+  if(application->get_parameters().solver_type == IncNS::SolverType::Unsteady)
+  {
+    time_integrator = std::make_shared<TimeIntBDFCoupled<dim, Number>>(
+      pde_operator, application->get_parameters(), mpi_comm, postprocessor);
+
+    time_integrator->setup(application->get_parameters().restarted_simulation);
+
+    pde_operator->setup_solvers(time_integrator->get_scaling_factor_time_derivative_term());
+  }
+  else if(application->get_parameters().solver_type == IncNS::SolverType::Steady)
   {
     auto operator_coupled = std::dynamic_pointer_cast<OperatorCoupled<dim, Number>>(pde_operator);
 
@@ -101,7 +104,7 @@ Driver<dim, Number>::setup()
 
     driver_steady->setup();
 
-    pde_operator->setup_solvers();
+    pde_operator->setup_solvers(1.0 /* dummy */);
   }
   else
     AssertThrow(false, dealii::ExcMessage("Not implemented."));
@@ -113,7 +116,11 @@ template<int dim, typename Number>
 void
 Driver<dim, Number>::solve() const
 {
-  if(application->get_parameters().problem_type == IncNS::ProblemType::Steady)
+  if (application->get_parameters().problem_type == IncNS::ProblemType::Unsteady)
+  {
+    time_integrator->timeloop();
+  }
+  else if(application->get_parameters().problem_type == IncNS::ProblemType::Steady)
   {
     if(application->get_parameters().solver_type == IncNS::SolverType::Steady)
       driver_steady->solve();
@@ -135,26 +142,59 @@ Driver<dim, Number>::print_performance_results(double const total_time) const
 
   pcout << "Performance results for Darcy solver:" << std::endl;
 
-  if(application->get_parameters().solver_type == IncNS::SolverType::Steady)
+  // Iterations
   {
-    timer_tree.insert({"Darcy flow"}, driver_steady->get_timings());
+    if(application->get_parameters().solver_type == IncNS::SolverType::Unsteady)
+    {
+      pcout << std::endl << "Average number of iterations:" << std::endl;
+
+      time_integrator->print_iterations();
+    }
   }
 
-  // Throughput in DoFs/s per time step per core
-  dealii::types::global_dof_index const DoFs = pde_operator->get_number_of_dofs();
-  unsigned int const N_mpi_processes         = dealii::Utilities::MPI::n_mpi_processes(mpi_comm);
-
-  dealii::Utilities::MPI::MinMaxAvg overall_time_data =
-    dealii::Utilities::MPI::min_max_avg(total_time, mpi_comm);
-  double const overall_time_avg = overall_time_data.avg;
-
-  if(application->get_parameters().solver_type == IncNS::SolverType::Steady)
+  // Wall times
   {
-    print_throughput_steady(pcout, DoFs, overall_time_avg, N_mpi_processes);
+    timer_tree.insert({"Darcy flow"}, total_time);
+
+    if(application->get_parameters().solver_type == IncNS::SolverType::Unsteady)
+    {
+      timer_tree.insert({"Darcy flow"}, time_integrator->get_timings());
+    }
+    else if(application->get_parameters().solver_type == IncNS::SolverType::Steady)
+    {
+      timer_tree.insert({"Darcy flow"}, driver_steady->get_timings());
+    }
+    else
+      AssertThrow(false, dealii::ExcMessage("Not implemented."));
   }
 
-  // computational costs in CPUh
-  print_costs(pcout, overall_time_avg, N_mpi_processes);
+  // Performance
+  {
+    dealii::types::global_dof_index const DoFs = pde_operator->get_number_of_dofs();
+    unsigned int const N_mpi_processes         = dealii::Utilities::MPI::n_mpi_processes(mpi_comm);
+
+    dealii::Utilities::MPI::MinMaxAvg overall_time_data =
+      dealii::Utilities::MPI::min_max_avg(total_time, mpi_comm);
+    double const overall_time_avg = overall_time_data.avg;
+
+    // Throughput in DoFs/s per time step per core
+    {
+      if(application->get_parameters().solver_type == IncNS::SolverType::Unsteady)
+      {
+        unsigned int const N_time_steps = time_integrator->get_number_of_time_steps();
+        print_throughput_unsteady(pcout, DoFs, overall_time_avg, N_time_steps, N_mpi_processes);
+      }
+      else if(application->get_parameters().solver_type == IncNS::SolverType::Steady)
+      {
+        print_throughput_steady(pcout, DoFs, overall_time_avg, N_mpi_processes);
+      }
+      else
+        AssertThrow(false, dealii::ExcMessage("Not implemented."));
+    }
+
+    // Computational costs in CPUh
+    print_costs(pcout, overall_time_avg, N_mpi_processes);
+  }
 
   pcout << "_________________________________________________________________________________"
         << std::endl

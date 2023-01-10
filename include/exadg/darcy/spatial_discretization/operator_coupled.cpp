@@ -141,9 +141,12 @@ OperatorCoupled<dim, Number>::setup(
 
 template<int dim, typename Number>
 void
-OperatorCoupled<dim, Number>::setup_solvers()
+OperatorCoupled<dim, Number>::setup_solvers(double const & scaling_factor_time_derivative_term)
 {
   pcout_ << std::endl << "Setup Darcy solver ..." << std::endl;
+
+  // TODO unify value x value operators and set this
+  (void)scaling_factor_time_derivative_term;
 
   initialize_block_preconditioner();
 
@@ -198,19 +201,31 @@ template<int dim, typename Number>
 unsigned int
 OperatorCoupled<dim, Number>::solve(BlockVectorType &       dst,
                                     BlockVectorType const & src,
-                                    bool const              update_preconditioner)
+                                    bool const              update_preconditioner,
+                                    double const            time,
+                                    double const            scaling_factor_mass)
 {
+  // Update linear operator
+  linear_operator_.update(time, scaling_factor_mass);
+
   return linear_solver_->solve(dst, src, update_preconditioner);
 }
 
 template<int dim, typename Number>
 void
 OperatorCoupled<dim, Number>::apply(OperatorCoupled::BlockVectorType &       dst,
-                                    OperatorCoupled::BlockVectorType const & src) const
+                                    OperatorCoupled::BlockVectorType const & src,
+                                    double const                             time,
+                                    double const scaling_factor_mass) const
 {
   // (0,0) block of the matrix
   {
-    permeability_operator_.apply(dst.block(0), src.block(0));
+    if(param_.problem_type == IncNS::ProblemType::Unsteady)
+    {
+      mass_operator_.set_time(time);
+      mass_operator_.apply_scale(dst.block(0), scaling_factor_mass, src.block(0));
+    }
+    permeability_operator_.apply_add(dst.block(0), src.block(0));
   }
 
   // (0,1) block of the matrix
@@ -227,19 +242,34 @@ OperatorCoupled<dim, Number>::apply(OperatorCoupled::BlockVectorType &       dst
 
 template<int dim, typename Number>
 void
-OperatorCoupled<dim, Number>::rhs(OperatorCoupled::BlockVectorType & dst) const
+OperatorCoupled<dim, Number>::apply_mass_operator(VectorType & dst, VectorType const & src) const
+{
+  mass_operator_.apply(dst, src);
+}
+
+template<int dim, typename Number>
+void
+OperatorCoupled<dim, Number>::apply_mass_operator_add(VectorType &       dst,
+                                                      VectorType const & src) const
+{
+  mass_operator_.apply_add(dst, src);
+}
+
+template<int dim, typename Number>
+void
+OperatorCoupled<dim, Number>::rhs(OperatorCoupled::BlockVectorType & dst, double const time) const
 {
   // Velocity block
   {
-    gradient_operator_.rhs(dst.block(0), 0.0);
+    gradient_operator_.rhs(dst.block(0), time);
 
     if(param_.right_hand_side)
-      rhs_operator_.evaluate_add(dst.block(0), 0.0);
+      rhs_operator_.evaluate_add(dst.block(0), time);
   }
 
   // Pressure block
   {
-    divergence_operator_.rhs(dst.block(1), 0.0);
+    divergence_operator_.rhs(dst.block(1), time);
     dst.block(1) *= -1.0;
   }
 }
@@ -337,12 +367,12 @@ OperatorCoupled<dim, Number>::initialize_block_vector_velocity_pressure(BlockVec
 
 template<int dim, typename Number>
 void
-OperatorCoupled<dim, Number>::prescribe_initial_conditions(
-  OperatorCoupled::VectorType & velocity,
-  OperatorCoupled::VectorType & pressure) const
+OperatorCoupled<dim, Number>::prescribe_initial_conditions(OperatorCoupled::VectorType & velocity,
+                                                           OperatorCoupled::VectorType & pressure,
+                                                           double const                  time) const
 {
-  field_functions_->initial_solution_velocity->set_time(0.0);
-  field_functions_->initial_solution_pressure->set_time(0.0);
+  field_functions_->initial_solution_velocity->set_time(time);
+  field_functions_->initial_solution_pressure->set_time(time);
 
   typedef dealii::LinearAlgebra::distributed::Vector<double> VectorTypeDouble;
 
@@ -351,7 +381,6 @@ OperatorCoupled<dim, Number>::prescribe_initial_conditions(
   velocity_double = velocity;
   pressure_double = pressure;
 
-  // Initial guess is a zero field for the velocity and the pressure
   dealii::VectorTools::interpolate(*get_mapping(),
                                    dof_handler_u_,
                                    *(field_functions_->initial_solution_velocity),
@@ -674,6 +703,15 @@ OperatorCoupled<dim, Number>::initialize_operators()
 {
   dealii::AffineConstraints<Number> constraint_dummy;
   constraint_dummy.close();
+
+  // Mass operator
+  {
+    MassOperatorData<dim> data;
+    data.dof_index  = get_dof_index_velocity();
+    data.quad_index = get_quad_index_velocity();
+
+    mass_operator_.initialize(*matrix_free_, constraint_u_, data);
+  }
 
   // Permeability operator
   {

@@ -78,9 +78,12 @@ public:
    */
   inline DEAL_II_ALWAYS_INLINE //
     vector
-    calculate_flux(vector const & value_m, vector const & value_p, point const & q, Number const time) const
+    calculate_flux(vector const & value_m,
+                   vector const & value_p,
+                   point const &  q,
+                   Number const   time) const
   {
-    Assert(data.porosity_field, dealii::ExcMessage("Porosity field function not set."));
+    AssertThrow(data.porosity_field, dealii::ExcMessage("Porosity field function not set."));
 
     auto const porosity = FunctionEvaluator<0, dim, Number>::value(data.porosity_field, q, time);
 
@@ -95,7 +98,7 @@ public:
     vector
     get_volume_flux(CellIntegratorU & velocity, unsigned int const q, Number const time) const
   {
-    Assert(data.porosity_field, dealii::ExcMessage("Porosity field function not set."));
+    AssertThrow(data.porosity_field, dealii::ExcMessage("Porosity field function not set."));
 
     auto const porosity = FunctionEvaluator<0, dim, Number>::value(data.porosity_field,
                                                                    velocity.quadrature_point(q),
@@ -151,8 +154,8 @@ public:
   DivergenceOperator();
 
   void
-  initialize(dealii::MatrixFree<dim, Number> const &   matrix_free,
-             DivergenceOperatorData<dim> const & data);
+  initialize(dealii::MatrixFree<dim, Number> const & matrix_free,
+             DivergenceOperatorData<dim> const &     data);
 
   // homogeneous operator
   void

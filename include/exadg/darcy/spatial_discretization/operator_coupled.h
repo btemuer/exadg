@@ -30,16 +30,17 @@
 #include <deal.II/lac/la_parallel_vector.h>
 
 // ExaDG
+#include <exadg/darcy/spatial_discretization/operators/divergence_operator.h>
 #include <exadg/darcy/spatial_discretization/operators/permeability_operator.h>
 #include <exadg/darcy/user_interface/field_functions.h>
 #include <exadg/grid/grid.h>
-#include <exadg/darcy/spatial_discretization/operators/divergence_operator.h>
 #include <exadg/incompressible_navier_stokes/spatial_discretization/operators/gradient_operator.h>
 #include <exadg/incompressible_navier_stokes/spatial_discretization/operators/momentum_operator.h>
 #include <exadg/incompressible_navier_stokes/spatial_discretization/operators/rhs_operator.h>
 #include <exadg/incompressible_navier_stokes/user_interface/boundary_descriptor.h>
 #include <exadg/incompressible_navier_stokes/user_interface/parameters.h>
 #include <exadg/matrix_free/matrix_free_data.h>
+#include <exadg/operators/mass_operator.h>
 #include <exadg/poisson/preconditioners/multigrid_preconditioner.h>
 #include <exadg/solvers_and_preconditioners/preconditioners/preconditioner_base.h>
 #include <exadg/solvers_and_preconditioners/solvers/iterative_solvers_dealii_wrapper.h>
@@ -70,6 +71,13 @@ public:
     this->pde_operator_ = &pde_operator;
   }
 
+  void
+  update(double const time_in, double const scaling_factor_in)
+  {
+    this->time                = time_in;
+    this->scaling_factor_mass = scaling_factor_in;
+  }
+
   /*
    * The implementation of linear solvers in deal.ii requires that a function called 'vmult' is
    * provided.
@@ -77,11 +85,14 @@ public:
   void
   vmult(BlockVectorType & dst, BlockVectorType const & src) const
   {
-    pde_operator_->apply(dst, src);
+    pde_operator_->apply(dst, src, time, scaling_factor_mass);
   }
 
 private:
   PDEOperator const * pde_operator_;
+
+  double time;
+  double scaling_factor_mass;
 };
 
 template<int dim, typename Number>
@@ -159,25 +170,39 @@ public:
         std::shared_ptr<MatrixFreeData<dim, Number>>     matrix_free_data);
 
   void
-  setup_solvers();
+  setup_solvers(double const & scaling_factor_time_derivative_term);
 
   /*
    * Solve the problem
    */
   unsigned int
-  solve(BlockVectorType & dst, BlockVectorType const & src, bool update_preconditioner);
+  solve(BlockVectorType &       dst,
+        BlockVectorType const & src,
+        bool                    update_preconditioner,
+        double const            time                = 0.0,
+        double const            scaling_factor_mass = 1.0);
 
   /*
    * Apply the matrix vector product
    */
   void
-  apply(BlockVectorType & dst, BlockVectorType const & src) const;
+  apply(BlockVectorType &       dst,
+        BlockVectorType const & src,
+        double const            time,
+        double const            scaling_factor_mass) const;
 
   /*
    * Calculate the right-hand side
    */
   void
-  rhs(BlockVectorType & dst) const;
+  rhs(BlockVectorType & dst, double const time = 0.0) const;
+
+  // Methods used to add dynamic contributions to the rhs
+  void
+  apply_mass_operator(VectorType & dst, VectorType const & src) const;
+
+  void
+  apply_mass_operator_add(VectorType & dst, VectorType const & src) const;
 
   /*
    * Getters
@@ -226,7 +251,9 @@ public:
    * Prescribe initial conditions using a specified analytical/initial solution function.
    */
   void
-  prescribe_initial_conditions(VectorType & velocity, VectorType & pressure) const;
+  prescribe_initial_conditions(VectorType & velocity,
+                               VectorType & pressure,
+                               double const time = 0.0) const;
 
   /*
    * Preconditioner interface
@@ -327,6 +354,7 @@ private:
    */
   PermeabilityOperator<dim, Number>    permeability_operator_;
   DivergenceOperator<dim, Number>      divergence_operator_;
+  MassOperator<dim, dim, Number>       mass_operator_;
   IncNS::RHSOperator<dim, Number>      rhs_operator_;
   IncNS::GradientOperator<dim, Number> gradient_operator_;
 

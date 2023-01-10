@@ -25,6 +25,7 @@
 #include <exadg/darcy/postprocessor/postprocessor.h>
 #include <exadg/darcy/spatial_discretization/operator_coupled.h>
 #include <exadg/darcy/time_integration/driver_steady_problems.h>
+#include <exadg/darcy/time_integration/time_int_bdf_coupled.h>
 #include <exadg/darcy/user_interface/application_base.h>
 #include <exadg/matrix_free/matrix_free_data.h>
 #include <exadg/utilities/print_general_infos.h>
@@ -114,6 +115,9 @@ private:
   /*
    * Temporal discretization
    */
+
+  // unsteady solver
+  std::shared_ptr<TimeIntBDFCoupled<dim, Number>> time_integrator;
 
   // steady solver
   std::shared_ptr<DriverSteadyProblems<dim, Number>> driver_steady;

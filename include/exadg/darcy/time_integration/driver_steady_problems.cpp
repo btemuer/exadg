@@ -121,7 +121,7 @@ DriverSteadyProblems<dim, Number>::do_solve()
   pcout << std::endl << "Solve steady state problem:" << std::endl;
 
   // calculate rhs vector
-  pde_operator->rhs(rhs_vector);
+  pde_operator->rhs(rhs_vector, 0.0 /* time */);
 
   // solve coupled system of equations
   unsigned int const n_iter =

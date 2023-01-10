@@ -19,99 +19,40 @@
  *  ______________________________________________________________________
  */
 
-#ifndef APPLICATIONS_DARCY_TEST_CASES_EXAMPLE_H_
-#define APPLICATIONS_DARCY_TEST_CASES_EXAMPLE_H_
+#ifndef APPLICATIONS_DARCY_TEST_CASES_UNSTEADY_PROBLEM_H_
+#define APPLICATIONS_DARCY_TEST_CASES_UNSTEADY_PROBLEM_H_
 
 namespace ExaDG
 {
 namespace Darcy
 {
-enum class BoundaryCondition
-{
-  VelocityInflow,
-};
-
-inline void
-string_to_enum(BoundaryCondition & enum_type, std::string const & string_type)
-{
-  // clang-format off
-  if     (string_type == "VelocityInflow") enum_type = BoundaryCondition::VelocityInflow;
-  else AssertThrow(false, dealii::ExcMessage("Unknown operator type. Not implemented."));
-  // clang-format on
-}
 
 template<int dim>
-class [[maybe_unused]] AnalyticalSolutionVelocity : public dealii::Function<dim>
+class InflowVelocityBC : public dealii::Function<dim>
 {
 public:
-  explicit AnalyticalSolutionVelocity(double const inflow_velocity)
-    : dealii::Function<dim>(dim, 0.0), inflow_velocity(inflow_velocity)
-  {
-  }
-
-  double
-  value(dealii::Point<dim> const & p, unsigned int const component = 0) const
-  {
-    double result = 0.0;
-
-    if(component == 0)
-      result = inflow_velocity;
-
-    return result;
-  }
-
-private:
-  double const inflow_velocity;
-};
-
-template<int dim>
-class [[maybe_unused]] AnalyticalSolutionPressure : public dealii::Function<dim>
-{
-public:
-  AnalyticalSolutionPressure(double const viscosity,
-                             double const permeability,
-                             double const inflow_velocity,
-                             double const L)
-    : dealii::Function<dim>(1 /*n_components*/, 0.0),
-      viscosity(viscosity),
-      permeability(permeability),
-      inflow_velocity(inflow_velocity),
-      L(L)
-  {
-  }
-
-  double
-  value(dealii::Point<dim> const & p, unsigned int const /*component*/) const
-  {
-    // pressure decreases linearly in flow direction
-    double pressure_gradient = -viscosity * inflow_velocity / permeability;
-
-    double const result = (p[0] - L) * pressure_gradient;
-
-    return result;
-  }
-
-private:
-  double const viscosity, permeability, inflow_velocity, L;
-};
-
-template<int dim>
-class DirichletBoundaryVelocity : public dealii::Function<dim>
-{
-public:
-  explicit DirichletBoundaryVelocity(double const inflow_velocity)
-    : dealii::Function<dim>(dim, 0.0), inflow_velocity(inflow_velocity)
+  InflowVelocityBC(double const inflow_velocity, double const end_time)
+    : dealii::Function<dim>(dim, 0.0), inflow_velocity(inflow_velocity), end_time(end_time)
   {
   }
 
   double
   value(dealii::Point<dim> const & /*p*/, unsigned int const component = 0) const
   {
-    return (component == 0) ? inflow_velocity : 0.0;
+    if(component == 0)
+    {
+      double const t = this->get_time();
+
+      return inflow_velocity * (0.5 * std::cos(dealii::numbers::PI * (1.0 + t / end_time)) + 0.5);
+      // return inflow_velocity * t / end_time;
+    }
+
+    return 0.0;
   }
 
 private:
   double const inflow_velocity;
+  double const end_time;
 };
 
 template<int dim>
@@ -156,10 +97,6 @@ public:
 
     // clang-format off
     prm.enter_subsection("Application");
-      prm.add_parameter("BoundaryConditionType",
-                        boundary_condition_string,
-                        "Type of boundary condition.",
-                        dealii::Patterns::Selection("VelocityInflow|PressureOutflow"));
       prm.add_parameter("ApplySymmetryBC",
                         apply_symmetry_bc,
                         "Apply symmetry boundary condition.",
@@ -173,49 +110,55 @@ private:
   parse_parameters() final
   {
     ApplicationBase<dim, Number>::parse_parameters();
-
-    string_to_enum(boundary_condition, boundary_condition_string);
   }
   void
   set_parameters() final
   {
     // DEFINES DUE TO THE SHARED IncNS PARAMS INTERFACE
-    this->param.equation_type                 = IncNS::EquationType::NavierStokes;
-    this->param.start_time                    = start_time;
-    this->param.end_time                      = end_time;
-    this->param.temporal_discretization       = IncNS::TemporalDiscretization::BDFCoupledSolution;
-    this->param.calculation_of_time_step_size = IncNS::TimeStepCalculation::UserSpecified;
-    this->param.time_step_size                = 1.0e-1;
-    this->param.IP_formulation_viscous        = IncNS::InteriorPenaltyFormulation::SIPG;
-    this->param.treatment_of_convective_term  = IncNS::TreatmentOfConvectiveTerm::Implicit;
+    this->param.equation_type                = IncNS::EquationType::NavierStokes;
+    this->param.IP_formulation_viscous       = IncNS::InteriorPenaltyFormulation::SIPG;
+    this->param.treatment_of_convective_term = IncNS::TreatmentOfConvectiveTerm::Implicit;
     this->param.apply_penalty_terms_in_postprocessing_step = false;
     this->param.use_continuity_penalty                     = false;
     this->param.use_divergence_penalty                     = false;
 
     // MATHEMATICAL MODEL
-    this->param.problem_type    = IncNS::ProblemType::Steady;
+    this->param.problem_type    = IncNS::ProblemType::Unsteady;
     this->param.right_hand_side = false;
 
     // PHYSICAL QUANTITIES
-    this->param.viscosity = viscosity;
-    this->param.density   = density;
+    this->param.viscosity  = viscosity;
+    this->param.density    = density;
+    this->param.start_time = start_time;
+    this->param.end_time   = end_time;
 
     // TEMPORAL DISCRETIZATION
-    this->param.solver_type = IncNS::SolverType::Steady;
+    this->param.solver_type                   = IncNS::SolverType::Unsteady;
+    this->param.temporal_discretization       = IncNS::TemporalDiscretization::BDFCoupledSolution;
+    this->param.order_time_integrator         = 3;
+    this->param.start_with_low_order          = true;
+    this->param.calculation_of_time_step_size = IncNS::TimeStepCalculation::UserSpecified;
+    this->param.time_step_size                = 1.0e-1;
+
+    // output of solver information
+    this->param.solver_info_data.interval_time_steps = 1;
 
     // SPATIAL DISCRETIZATION
     this->param.spatial_discretization  = IncNS::SpatialDiscretization::L2;
     this->param.grid.triangulation_type = TriangulationType::Distributed;
-    this->param.grid.n_refine_global    = 9;
+    this->param.grid.n_refine_global    = 6;
     this->param.degree_u                = 3;
     this->param.grid.mapping_degree     = this->param.degree_u;
     this->param.degree_p                = IncNS::DegreePressure::MixedOrder;
 
-    // COUPLED NAVIER-STOKES SOLVER
+    // COUPLED DARCY SOLVER
 
     // linear solver
     this->param.solver_coupled      = IncNS::SolverCoupled::FGMRES;
     this->param.solver_data_coupled = SolverData(1e4, 1.e-12, 1.e-8, 200);
+
+    this->param.update_preconditioner_coupled                  = true;
+    this->param.update_preconditioner_coupled_every_time_steps = 1;
 
     // preconditioning linear solver
     this->param.preconditioner_coupled = IncNS::PreconditionerCoupled::BlockTriangular;
@@ -261,15 +204,12 @@ private:
     using pair =
       typename std::pair<dealii::types::boundary_id, std::shared_ptr<dealii::Function<dim>>>;
 
-    AssertThrow(boundary_condition == BoundaryCondition::VelocityInflow,
-                dealii::ExcMessage("not implemented."));
-
     // fill boundary descriptor velocity
     {
       // inflow
       {
         this->boundary_descriptor->velocity->dirichlet_bc.insert(
-          pair(1, new DirichletBoundaryVelocity<dim>(this->inflow_velocity)));
+          pair(1, new InflowVelocityBC<dim>(this->inflow_velocity, end_time)));
       }
       // outflow
       {
@@ -343,25 +283,28 @@ private:
 
     // write output for visualization of results
     pp_data.output_data.time_control_data.is_active = this->output_parameters.write;
-    pp_data.output_data.directory                   = this->output_parameters.directory + "vtu/";
-    pp_data.output_data.filename                    = this->output_parameters.filename;
-    pp_data.output_data.write_vorticity             = false;
-    pp_data.output_data.write_divergence            = false;
-    pp_data.output_data.write_velocity_magnitude    = false;
-    pp_data.output_data.write_vorticity_magnitude   = false;
-    pp_data.output_data.write_processor_id          = false;
-    pp_data.output_data.write_q_criterion           = false;
-    pp_data.output_data.degree                      = this->param.degree_u;
-    pp_data.output_data.write_higher_order          = true;
+
+    pp_data.output_data.time_control_data.start_time               = start_time;
+    pp_data.output_data.time_control_data.trigger_every_time_steps = 1;
+
+    pp_data.output_data.directory = this->output_parameters.directory + "vtu/";
+    pp_data.output_data.filename  = this->output_parameters.filename;
+
+    pp_data.output_data.write_vorticity           = false;
+    pp_data.output_data.write_divergence          = false;
+    pp_data.output_data.write_velocity_magnitude  = false;
+    pp_data.output_data.write_vorticity_magnitude = false;
+    pp_data.output_data.write_processor_id        = false;
+    pp_data.output_data.write_q_criterion         = false;
+
+    pp_data.output_data.degree             = this->param.degree_u;
+    pp_data.output_data.write_higher_order = true;
 
     std::shared_ptr<PostProcessor<dim, Number>> pp;
     pp.reset(new Darcy::PostProcessor<dim, Number>(pp_data, this->mpi_comm));
 
     return pp;
   }
-
-  std::string       boundary_condition_string = "VelocityInflow";
-  BoundaryCondition boundary_condition        = BoundaryCondition::VelocityInflow;
 
   bool apply_symmetry_bc = true;
 
@@ -371,20 +314,18 @@ private:
   double const inflow_velocity = 1.0e-3;
   double const viscosity       = 1.0;
   double const density         = 1.0e-1;
-  double const permeability    = 1. / 3.;
 
   double const H = 1.0;
   double const L = 1.0;
 
   double const start_time = 0.0;
-  double const end_time   = 100.0;
+  double const end_time   = 1.0;
 };
 
 } // namespace Darcy
-
 } // namespace ExaDG
 
 #include <exadg/darcy/user_interface/implement_get_application.h>
 
 
-#endif // APPLICATIONS_DARCY_TEST_CASES_EXAMPLE_H_
+#endif // APPLICATIONS_DARCY_TEST_CASES_UNSTEADY_PROBLEM_H_

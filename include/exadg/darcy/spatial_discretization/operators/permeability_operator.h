@@ -78,9 +78,9 @@ public:
                     unsigned int const      q,
                     Number const           time) const
   {
-    Assert(data.viscosity > 0.0, dealii::ExcMessage("Problem with the viscosity."));
-    Assert(data.porosity_field, dealii::ExcMessage("Porosity field function not set."));
-    Assert(data.inverse_permeability_field, dealii::ExcMessage("Inverse permeability field function not set."));
+    AssertThrow(data.viscosity > 0.0, dealii::ExcMessage("Problem with the viscosity."));
+    AssertThrow(data.porosity_field, dealii::ExcMessage("Porosity field function not set."));
+    AssertThrow(data.inverse_permeability_field, dealii::ExcMessage("Inverse permeability field function not set."));
 
     auto const viscosity = dealii::make_vectorized_array<Number>(data.viscosity);
     auto const porosity  = FunctionEvaluator<0, dim, Number>::value(data.porosity_field,

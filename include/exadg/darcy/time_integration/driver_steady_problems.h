@@ -35,9 +35,6 @@ namespace ExaDG
 // forward declarations
 namespace IncNS
 {
-template<typename Number>
-class PostProcessorInterface;
-
 class Parameters;
 } // namespace IncNS
 
