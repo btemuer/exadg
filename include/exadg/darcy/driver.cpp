@@ -28,10 +28,10 @@ namespace Darcy
 {
 template<int dim, typename Number>
 Driver<dim, Number>::Driver(MPI_Comm const &                              comm,
-                            std::shared_ptr<ApplicationBase<dim, Number>> app)
+                            std::shared_ptr<ApplicationBase<dim, Number>> application)
   : mpi_comm(comm),
     pcout(std::cout, dealii::Utilities::MPI::this_mpi_process(comm) == 0),
-    application(app)
+    application(application)
 {
   print_general_info<Number>(pcout, mpi_comm, false);
 }
@@ -96,18 +96,16 @@ Driver<dim, Number>::setup()
   }
   else if(application->get_parameters().solver_type == IncNS::SolverType::Steady)
   {
-    auto operator_coupled = std::dynamic_pointer_cast<OperatorCoupled<dim, Number>>(pde_operator);
-
     // initialize driver for steady state problem that depends on pde_operator
     driver_steady = std::make_shared<DriverSteadyProblems<dim, Number>>(
-      operator_coupled, application->get_parameters(), mpi_comm, postprocessor);
+      pde_operator, application->get_parameters(), mpi_comm, postprocessor);
 
     driver_steady->setup();
 
     pde_operator->setup_solvers(1.0 /* dummy */);
   }
   else
-    AssertThrow(false, dealii::ExcMessage("Not implemented."));
+    AssertThrow(false, dealii::ExcNotImplemented());
 
   timer_tree.insert({"Darcy flow", "Setup"}, timer.wall_time());
 }
@@ -125,10 +123,10 @@ Driver<dim, Number>::solve() const
     if(application->get_parameters().solver_type == IncNS::SolverType::Steady)
       driver_steady->solve();
     else
-      AssertThrow(false, dealii::ExcMessage("Not implemented."));
+      AssertThrow(false, dealii::ExcNotImplemented());
   }
   else
-    AssertThrow(false, dealii::ExcMessage("Not implemented."));
+    AssertThrow(false, dealii::ExcNotImplemented());
 }
 
 template<int dim, typename Number>
@@ -165,7 +163,7 @@ Driver<dim, Number>::print_performance_results(double const total_time) const
       timer_tree.insert({"Darcy flow"}, driver_steady->get_timings());
     }
     else
-      AssertThrow(false, dealii::ExcMessage("Not implemented."));
+      AssertThrow(false, dealii::ExcNotImplemented());
   }
 
   // Performance
@@ -189,7 +187,7 @@ Driver<dim, Number>::print_performance_results(double const total_time) const
         print_throughput_steady(pcout, DoFs, overall_time_avg, N_mpi_processes);
       }
       else
-        AssertThrow(false, dealii::ExcMessage("Not implemented."));
+        AssertThrow(false, dealii::ExcNotImplemented());
     }
 
     // Computational costs in CPUh
@@ -202,8 +200,9 @@ Driver<dim, Number>::print_performance_results(double const total_time) const
 }
 
 template class Driver<2, float>;
-template class Driver<3, float>;
 template class Driver<2, double>;
+
+template class Driver<3, float>;
 template class Driver<3, double>;
 
 } // namespace Darcy

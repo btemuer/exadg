@@ -53,7 +53,6 @@ get_dofs_per_element(std::string const & input_file,
   // clang-format on
   prm.parse_input(input_file, "", true, true);
 
-
   unsigned int const velocity_dofs_per_element = dim * dealii::Utilities::pow(degree + 1, dim);
 
   unsigned int pressure_dofs_per_element = 1;
@@ -123,7 +122,7 @@ private:
   std::shared_ptr<DriverSteadyProblems<dim, Number>> driver_steady;
 
   /*
-   * Computation time (wall clock time).
+   * Computation time (wall clock time)
    */
   mutable TimerTree timer_tree;
 };
