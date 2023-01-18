@@ -19,11 +19,12 @@
  *  ______________________________________________________________________
  */
 
-#ifndef EXADG_DARCY_HETEROGENEOUS_MASS_OPERATOR_H
-#define EXADG_DARCY_HETEROGENEOUS_MASS_OPERATOR_H
+#ifndef EXADG_DARCY_PERMEABILITY_OPERATOR_H
+#define EXADG_DARCY_PERMEABILITY_OPERATOR_H
 
 #include <exadg/functions_and_boundary_conditions/evaluate_functions.h>
 #include <exadg/matrix_free/integrators.h>
+#include <exadg/operators/integrator_flags.h>
 #include <exadg/operators/mapping_flags.h>
 
 
@@ -33,12 +34,12 @@ namespace Darcy
 {
 namespace Operators
 {
-template<int dim, typename Number>
+template<int dim>
 struct PermeabilityKernelData
 {
   std::shared_ptr<dealii::Function<dim>> porosity_field;
   std::shared_ptr<dealii::Function<dim>> inverse_permeability_field;
-  Number                                 viscosity;
+  double                                 viscosity;
 };
 
 template<int dim, typename Number>
@@ -49,12 +50,25 @@ private:
 
   using scalar = dealii::VectorizedArray<Number>;
   using vector = dealii::Tensor<1, dim, dealii::VectorizedArray<Number>>;
+  using dyadic = dealii::Tensor<2, dim, dealii::VectorizedArray<Number>>;
+  using point  = dealii::Point<dim, dealii::VectorizedArray<Number>>;
 
 public:
   void
-  reinit(PermeabilityKernelData<dim, Number> const & data_in) const
+  reinit(PermeabilityKernelData<dim> const & data_in) const
   {
     data = data_in;
+  }
+
+  IntegratorFlags
+  get_integrator_flags() const
+  {
+    IntegratorFlags flags;
+
+    flags.cell_evaluate  = dealii::EvaluationFlags::values;
+    flags.cell_integrate = dealii::EvaluationFlags::values;
+
+    return flags;
   }
 
   static MappingFlags
@@ -74,38 +88,36 @@ public:
    */
   inline DEAL_II_ALWAYS_INLINE //
     vector
-    get_volume_flux(CellIntegratorU const & velocity,
-                    unsigned int const      q,
-                    Number const           time) const
+    get_volume_flux(vector const & velocity_value, point const & q_point, double const time) const
   {
     AssertThrow(data.viscosity > 0.0, dealii::ExcMessage("Problem with the viscosity."));
     AssertThrow(data.porosity_field, dealii::ExcMessage("Porosity field function not set."));
-    AssertThrow(data.inverse_permeability_field, dealii::ExcMessage("Inverse permeability field function not set."));
+    AssertThrow(data.inverse_permeability_field,
+                dealii::ExcMessage("Inverse permeability field function not set."));
 
-    auto const viscosity = dealii::make_vectorized_array<Number>(data.viscosity);
-    auto const porosity  = FunctionEvaluator<0, dim, Number>::value(data.porosity_field,
-                                                                   velocity.quadrature_point(q),
-                                                                   time);
-    auto const inverse_permeability =
+    scalar const viscosity = dealii::make_vectorized_array<Number>(data.viscosity);
+    scalar const porosity =
+      FunctionEvaluator<0, dim, Number>::value(data.porosity_field, q_point, time);
+    dyadic const inverse_permeability =
       FunctionEvaluator<2, dim, Number>::value_symmetric(data.inverse_permeability_field,
-                                                         velocity.quadrature_point(q),
+                                                         q_point,
                                                          time);
 
-    return viscosity * porosity * inverse_permeability * velocity.get_value(q);
+    return viscosity * porosity * inverse_permeability * velocity_value;
   }
 
 private:
-  mutable PermeabilityKernelData<dim, Number> data;
+  mutable PermeabilityKernelData<dim> data;
 };
 } // namespace Operators
 
-template<int dim, typename Number>
+template<int dim>
 struct PermeabilityOperatorData
 {
   unsigned int dof_index_velocity{};
   unsigned int quad_index_velocity{};
 
-  Operators::PermeabilityKernelData<dim, Number> kernel_data;
+  Operators::PermeabilityKernelData<dim> kernel_data;
 };
 
 template<int dim, typename Number>
@@ -127,8 +139,8 @@ public:
   PermeabilityOperator() = default;
 
   void
-  initialize(dealii::MatrixFree<dim, Number> const &       matrix_free,
-             PermeabilityOperatorData<dim, Number> const & data);
+  initialize(dealii::MatrixFree<dim, Number> const & matrix_free,
+             PermeabilityOperatorData<dim> const &   data);
 
   void
   apply(VectorType & dst, VectorType const & src) const;
@@ -152,9 +164,9 @@ private:
 
   Operators::PermeabilityKernel<dim, Number> kernel;
 
-  PermeabilityOperatorData<dim, Number> data;
+  PermeabilityOperatorData<dim> data;
 };
 
 } // namespace Darcy
 } // namespace ExaDG
-#endif // EXADG_DARCY_HETEROGENEOUS_MASS_OPERATOR_H
+#endif // EXADG_DARCY_PERMEABILITY_OPERATOR_H

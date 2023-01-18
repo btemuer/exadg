@@ -28,8 +28,8 @@ namespace Darcy
 template<int dim, typename Number>
 void
 PermeabilityOperator<dim, Number>::initialize(
-  dealii::MatrixFree<dim, Number> const &       matrix_free_in,
-  PermeabilityOperatorData<dim, Number> const & data_in)
+  dealii::MatrixFree<dim, Number> const & matrix_free_in,
+  PermeabilityOperatorData<dim> const &   data_in)
 {
   this->matrix_free = &matrix_free_in;
   this->data        = data_in;
@@ -81,7 +81,8 @@ PermeabilityOperator<dim, Number>::do_cell_integral(CellIntegratorU & velocity) 
 {
   for(unsigned int q = 0; q < velocity.n_q_points; ++q)
   {
-    velocity.submit_value(kernel.get_volume_flux(velocity, q, this->time), q);
+    velocity.submit_value(
+      kernel.get_volume_flux(velocity.get_value(q), velocity.quadrature_point(q), this->time), q);
   }
 }
 

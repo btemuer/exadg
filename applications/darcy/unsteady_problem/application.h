@@ -164,7 +164,9 @@ private:
     this->param.preconditioner_coupled = IncNS::PreconditionerCoupled::BlockTriangular;
 
     // preconditioner velocity/momentum block
-    this->param.preconditioner_velocity_block = IncNS::MomentumPreconditioner::InverseMassMatrix;
+    //this->param.implement_block_diagonal_preconditioner_matrix_free = true;
+    //this->param.use_cell_based_face_loops = true;
+    this->param.preconditioner_velocity_block = IncNS::MomentumPreconditioner::BlockJacobi;
 
     // preconditioner Schur-complement block
     this->param.preconditioner_pressure_block =

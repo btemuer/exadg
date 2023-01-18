@@ -48,7 +48,7 @@ TimeIntBDFCoupled<dim, Number>::TimeIntBDFCoupled(
                            false),
     param(param_in),
     refine_steps_time(param_in.n_refine_time),
-    use_extrapolation(false),
+    use_extrapolation(true),
     pde_operator(operator_in),
     solution(this->order),
     iterations({0, {0, 0}}),

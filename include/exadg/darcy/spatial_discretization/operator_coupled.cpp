@@ -25,7 +25,9 @@
 // ExaDG
 #include <exadg/darcy/spatial_discretization/operator_coupled.h>
 #include <exadg/poisson/spatial_discretization/laplace_operator.h>
+#include <exadg/solvers_and_preconditioners/preconditioners/block_jacobi_preconditioner.h>
 #include <exadg/solvers_and_preconditioners/preconditioners/inverse_mass_preconditioner.h>
+#include <exadg/solvers_and_preconditioners/preconditioners/jacobi_preconditioner.h>
 
 namespace ExaDG
 {
@@ -40,8 +42,8 @@ OperatorCoupled<dim, Number>::OperatorCoupled(
   std::string                                           field,
   MPI_Comm const &                                      mpi_comm)
   : dealii::Subscriptor(),
-    grid_(grid),
-    boundary_descriptor_(boundary_descriptor),
+    grid(grid),
+    boundary_descriptor(boundary_descriptor),
     field_functions_(field_functions),
     param_(parameters),
     field_(field),
@@ -141,12 +143,11 @@ OperatorCoupled<dim, Number>::setup(
 
 template<int dim, typename Number>
 void
-OperatorCoupled<dim, Number>::setup_solvers(double const & scaling_factor_time_derivative_term)
+OperatorCoupled<dim, Number>::setup_solvers(double const scaling_factor_mass)
 {
   pcout_ << std::endl << "Setup Darcy solver ..." << std::endl;
 
-  // TODO unify value x value operators and set this
-  (void)scaling_factor_time_derivative_term;
+  momentum_operator_.set_scaling_factor_mass_operator(scaling_factor_mass);
 
   initialize_block_preconditioner();
 
@@ -220,12 +221,9 @@ OperatorCoupled<dim, Number>::apply(OperatorCoupled::BlockVectorType &       dst
 {
   // (0,0) block of the matrix
   {
-    if(param_.problem_type == IncNS::ProblemType::Unsteady)
-    {
-      mass_operator_.set_time(time);
-      mass_operator_.apply_scale(dst.block(0), scaling_factor_mass, src.block(0));
-    }
-    permeability_operator_.apply_add(dst.block(0), src.block(0));
+    momentum_operator_.set_time(time);
+    momentum_operator_.set_scaling_factor_mass_operator(scaling_factor_mass);
+    momentum_operator_.apply(dst.block(0), src.block(0));
   }
 
   // (0,1) block of the matrix
@@ -328,7 +326,7 @@ template<int dim, typename Number>
 std::shared_ptr<dealii::Mapping<dim> const>
 OperatorCoupled<dim, Number>::get_mapping() const
 {
-  return grid_->get_mapping();
+  return grid->get_mapping();
 }
 
 template<int dim, typename Number>
@@ -590,7 +588,19 @@ OperatorCoupled<dim, Number>::initialize_preconditioner_velocity_block()
 {
   auto const type = param_.preconditioner_velocity_block;
 
-  if(type == IncNS::MomentumPreconditioner::InverseMassMatrix)
+  if(type == IncNS::MomentumPreconditioner::PointJacobi)
+  {
+    preconditioner_velocity_block_ =
+      std::make_shared<JacobiPreconditioner<MomentumOperator<dim, Number>>>(
+        this->momentum_operator_);
+  }
+  else if(type == IncNS::MomentumPreconditioner::BlockJacobi)
+  {
+    preconditioner_velocity_block_ =
+      std::make_shared<BlockJacobiPreconditioner<MomentumOperator<dim, Number>>>(
+        this->momentum_operator_);
+  }
+  else if(type == IncNS::MomentumPreconditioner::InverseMassMatrix)
   {
     preconditioner_velocity_block_ =
       std::make_shared<InverseMassPreconditioner<dim, dim, Number>>(get_matrix_free(),
@@ -609,8 +619,16 @@ OperatorCoupled<dim, Number>::apply_preconditioner_velocity_block(
 {
   auto const type = param_.preconditioner_velocity_block;
 
-  if(type == IncNS::MomentumPreconditioner::InverseMassMatrix)
+
+  if(type == IncNS::MomentumPreconditioner::PointJacobi ||
+     type == IncNS::MomentumPreconditioner::BlockJacobi)
+  {
     preconditioner_velocity_block_->vmult(dst, src);
+  }
+  else if(type == IncNS::MomentumPreconditioner::InverseMassMatrix)
+  {
+    preconditioner_velocity_block_->vmult(dst, src);
+  }
   else if(type == IncNS::MomentumPreconditioner::None)
     dst = src;
   else
@@ -652,13 +670,13 @@ OperatorCoupled<dim, Number>::setup_multigrid_preconditioner_pressure_block()
 
   mg_preconditioner->initialize(param_.multigrid_data_pressure_block,
                                 &get_dof_handler_p().get_triangulation(),
-                                grid_->get_coarse_triangulations(),
+                                grid->get_coarse_triangulations(),
                                 get_dof_handler_p().get_fe(),
                                 get_mapping(),
                                 laplace_operator_data,
                                 false,
                                 laplace_operator_data.bc->dirichlet_bc,
-                                grid_->periodic_faces);
+                                grid->periodic_faces);
 }
 
 template<int dim, typename Number>
@@ -668,11 +686,11 @@ OperatorCoupled<dim, Number>::initialize_boundary_descriptor_laplace()
   boundary_descriptor_laplace_ = std::make_shared<Poisson::BoundaryDescriptor<0, dim>>();
 
   // Dirichlet BCs for pressure
-  boundary_descriptor_laplace_->dirichlet_bc = boundary_descriptor_->pressure->dirichlet_bc;
+  boundary_descriptor_laplace_->dirichlet_bc = boundary_descriptor->pressure->dirichlet_bc;
 
   // Neumann BCs for pressure: These boundary conditions are empty, fill with zero functions
-  std::for_each(boundary_descriptor_->pressure->neumann_bc.begin(),
-                boundary_descriptor_->pressure->neumann_bc.end(),
+  std::for_each(boundary_descriptor->pressure->neumann_bc.begin(),
+                boundary_descriptor->pressure->neumann_bc.end(),
                 [this](auto boundary_id) {
                   this->boundary_descriptor_laplace_->neumann_bc.insert(
                     std::pair<dealii::types::boundary_id, std::shared_ptr<dealii::Function<dim>>>(
@@ -701,9 +719,6 @@ template<int dim, typename Number>
 void
 OperatorCoupled<dim, Number>::initialize_operators()
 {
-  dealii::AffineConstraints<Number> constraint_dummy;
-  constraint_dummy.close();
-
   // Mass operator
   {
     MassOperatorData<dim> data;
@@ -715,7 +730,7 @@ OperatorCoupled<dim, Number>::initialize_operators()
 
   // Permeability operator
   {
-    PermeabilityOperatorData<dim, Number> data;
+    PermeabilityOperatorData<dim> data;
 
     data.dof_index_velocity                     = get_dof_index_velocity();
     data.quad_index_velocity                    = get_quad_index_velocity();
@@ -724,6 +739,29 @@ OperatorCoupled<dim, Number>::initialize_operators()
     data.kernel_data.viscosity                  = param_.viscosity;
 
     permeability_operator_.initialize(*matrix_free_, data);
+  }
+
+  // Momentum operator (mass + permeability)
+  {
+    MomentumOperatorData<dim> data;
+
+    data.unsteady_problem = param_.problem_type == IncNS::ProblemType::Unsteady;
+
+    data.dof_index  = get_dof_index_velocity();
+    data.quad_index = get_quad_index_velocity();
+
+    data.implement_block_diagonal_preconditioner_matrix_free =
+      param_.implement_block_diagonal_preconditioner_matrix_free;
+    data.solver_block_diagonal         = Elementwise::Solver::CG;
+    data.preconditioner_block_diagonal = Elementwise::Preconditioner::InverseMassMatrix;
+    data.solver_data_block_diagonal    = param_.solver_data_block_diagonal;
+
+    data.permeability_kernel_data.porosity_field = field_functions_->porosity_field;
+    data.permeability_kernel_data.inverse_permeability_field =
+      field_functions_->inverse_permeability_field;
+    data.permeability_kernel_data.viscosity = param_.viscosity;
+
+    momentum_operator_.initialize(*matrix_free_, constraint_u_, data);
   }
 
   // Body force operator
@@ -747,7 +785,7 @@ OperatorCoupled<dim, Number>::initialize_operators()
     data.integration_by_parts = true;
     data.formulation          = IncNS::FormulationPressureGradientTerm::Weak;
     data.use_boundary_data    = true;
-    data.bc                   = boundary_descriptor_->pressure;
+    data.bc                   = boundary_descriptor->pressure;
 
     gradient_operator_.initialize(*matrix_free_, data);
   }
@@ -760,7 +798,7 @@ OperatorCoupled<dim, Number>::initialize_operators()
     data.dof_index_pressure         = get_dof_index_pressure();
     data.quad_index                 = get_quad_index_velocity();
     data.use_boundary_data          = true;
-    data.bc                         = boundary_descriptor_->velocity;
+    data.bc                         = boundary_descriptor->velocity;
     data.kernel_data.porosity_field = field_functions_->porosity_field;
 
     divergence_operator_.initialize(*matrix_free_, data);

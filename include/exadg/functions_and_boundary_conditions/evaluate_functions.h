@@ -231,7 +231,7 @@ struct FunctionEvaluator<2, dim, Number>
     dealii::Tensor<2, dim, dealii::VectorizedArray<Number>>
     value(std::shared_ptr<dealii::Function<dim>>                      function,
           dealii::Point<dim, dealii::VectorizedArray<Number>> const & q_points,
-          double const &                                              time)
+          double const                                                time)
   {
     dealii::Tensor<2, dim, dealii::VectorizedArray<Number>> value;
 
@@ -262,7 +262,7 @@ struct FunctionEvaluator<2, dim, Number>
     dealii::SymmetricTensor<2, dim, dealii::VectorizedArray<Number>>
     value_symmetric(std::shared_ptr<dealii::Function<dim>>                      function,
                     dealii::Point<dim, dealii::VectorizedArray<Number>> const & q_points,
-                    double const &                                              time)
+                    double const                                                time)
   {
     dealii::SymmetricTensor<2, dim, dealii::VectorizedArray<Number>> value;
 

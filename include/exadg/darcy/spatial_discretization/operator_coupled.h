@@ -31,11 +31,11 @@
 
 // ExaDG
 #include <exadg/darcy/spatial_discretization/operators/divergence_operator.h>
+#include <exadg/darcy/spatial_discretization/operators/momentum_operator.h>
 #include <exadg/darcy/spatial_discretization/operators/permeability_operator.h>
 #include <exadg/darcy/user_interface/field_functions.h>
 #include <exadg/grid/grid.h>
 #include <exadg/incompressible_navier_stokes/spatial_discretization/operators/gradient_operator.h>
-#include <exadg/incompressible_navier_stokes/spatial_discretization/operators/momentum_operator.h>
 #include <exadg/incompressible_navier_stokes/spatial_discretization/operators/rhs_operator.h>
 #include <exadg/incompressible_navier_stokes/user_interface/boundary_descriptor.h>
 #include <exadg/incompressible_navier_stokes/user_interface/parameters.h>
@@ -61,10 +61,6 @@ private:
   using PDEOperator     = OperatorCoupled<dim, Number>;
 
 public:
-  LinearOperatorCoupled() : dealii::Subscriptor(), pde_operator_(nullptr)
-  {
-  }
-
   void
   initialize(PDEOperator const & pde_operator)
   {
@@ -89,10 +85,10 @@ public:
   }
 
 private:
-  PDEOperator const * pde_operator_;
+  PDEOperator const * pde_operator_{nullptr};
 
-  double time;
-  double scaling_factor_mass;
+  double time{0.0};
+  double scaling_factor_mass{1.0};
 };
 
 template<int dim, typename Number>
@@ -104,8 +100,6 @@ private:
   using PDEOperator = OperatorCoupled<dim, Number>;
 
 public:
-  BlockPreconditioner() : pde_operator(nullptr){};
-
   void
   initialize(PDEOperator * pde_operator_in)
   {
@@ -134,7 +128,7 @@ public:
     return std::make_shared<TimerTree>();
   }
 
-  PDEOperator * pde_operator;
+  PDEOperator * pde_operator{nullptr};
 };
 
 template<int dim, typename Number = double>
@@ -170,7 +164,7 @@ public:
         std::shared_ptr<MatrixFreeData<dim, Number>>     matrix_free_data);
 
   void
-  setup_solvers(double const & scaling_factor_time_derivative_term);
+  setup_solvers(double const scaling_factor_mass);
 
   /*
    * Solve the problem
@@ -308,12 +302,12 @@ private:
   /*
    * Grid
    */
-  std::shared_ptr<Grid<dim> const> grid_;
+  std::shared_ptr<Grid<dim> const> grid;
 
   /*
    * User interface: Boundary conditions and field functions
    */
-  std::shared_ptr<IncNS::BoundaryDescriptor<dim> const> boundary_descriptor_;
+  std::shared_ptr<IncNS::BoundaryDescriptor<dim> const> boundary_descriptor;
   std::shared_ptr<FieldFunctions<dim, Number> const>    field_functions_;
 
   /*
@@ -357,6 +351,8 @@ private:
   MassOperator<dim, dim, Number>       mass_operator_;
   IncNS::RHSOperator<dim, Number>      rhs_operator_;
   IncNS::GradientOperator<dim, Number> gradient_operator_;
+
+  mutable MomentumOperator<dim, Number> momentum_operator_;
 
   MPI_Comm const mpi_comm_;
 
