@@ -36,7 +36,7 @@ string_to_enum(BoundaryCondition & enum_type, std::string const & string_type)
 {
   // clang-format off
   if     (string_type == "VelocityInflow") enum_type = BoundaryCondition::VelocityInflow;
-  else AssertThrow(false, dealii::ExcMessage("Unknown operator type. Not implemented."));
+  else AssertThrow(false, dealii::ExcMessage("Unknown BC type. Not implemented."));
   // clang-format on
 }
 
@@ -177,53 +177,45 @@ private:
   void
   set_parameters() final
   {
-    // DEFINES DUE TO THE SHARED IncNS PARAMS INTERFACE
-    this->param.equation_type                 = IncNS::EquationType::NavierStokes;
-    this->param.start_time                    = start_time;
-    this->param.end_time                      = end_time;
-    this->param.temporal_discretization       = IncNS::TemporalDiscretization::BDFCoupledSolution;
-    this->param.calculation_of_time_step_size = IncNS::TimeStepCalculation::UserSpecified;
-    this->param.time_step_size                = 1.0e-1;
-    this->param.IP_formulation_viscous        = IncNS::InteriorPenaltyFormulation::SIPG;
-    this->param.treatment_of_convective_term  = IncNS::TreatmentOfConvectiveTerm::Implicit;
-    this->param.apply_penalty_terms_in_postprocessing_step = false;
-    this->param.use_continuity_penalty                     = false;
-    this->param.use_divergence_penalty                     = false;
-
     // MATHEMATICAL MODEL
-    this->param.problem_type    = IncNS::ProblemType::Steady;
-    this->param.right_hand_side = false;
+    this->param.math_model.problem_type    = ProblemType::Steady;
+    this->param.math_model.right_hand_side = false;
 
     // PHYSICAL QUANTITIES
-    this->param.viscosity = viscosity;
-    this->param.density   = density;
+    this->param.physical_quantities.start_time = start_time;
+    this->param.physical_quantities.end_time   = end_time;
+    this->param.physical_quantities.viscosity  = viscosity;
+    this->param.physical_quantities.density    = density;
 
     // TEMPORAL DISCRETIZATION
-    this->param.solver_type = IncNS::SolverType::Steady;
+    this->param.temporal_disc.solver_type = TemporalSolverType::Steady;
 
     // SPATIAL DISCRETIZATION
-    this->param.spatial_discretization  = IncNS::SpatialDiscretization::L2;
-    this->param.grid.triangulation_type = TriangulationType::Distributed;
-    this->param.grid.n_refine_global    = 5;
-    this->param.degree_u                = 3;
-    this->param.grid.mapping_degree     = this->param.degree_u;
-    this->param.degree_p                = IncNS::DegreePressure::MixedOrder;
+    this->param.spatial_disc.method = SpatialDiscretizationMethod::L2;
+
+    this->param.spatial_disc.degree_u = 3;
+    this->param.spatial_disc.degree_p = DegreePressure::MixedOrder;
+
+    this->param.spatial_disc.grid_data.triangulation_type = TriangulationType::Distributed;
+    this->param.spatial_disc.grid_data.n_refine_global    = 3;
+    this->param.spatial_disc.grid_data.mapping_degree     = this->param.spatial_disc.degree_u;
 
     // COUPLED NAVIER-STOKES SOLVER
 
     // linear solver
-    this->param.solver_coupled      = IncNS::SolverCoupled::FGMRES;
-    this->param.solver_data_coupled = SolverData(1e4, 1.e-12, 1.e-8, 200);
+    this->param.linear_solver.method = LinearSolverMethod::GMRES;
+    this->param.linear_solver.data   = SolverData(10000, 1.e-12, 1.e-8);
 
     // preconditioning linear solver
-    this->param.preconditioner_coupled = IncNS::PreconditionerCoupled::BlockTriangular;
+    this->param.linear_solver.preconditioner.type = PreconditionerCoupled::BlockTriangular;
 
     // preconditioner velocity/momentum block
-    this->param.preconditioner_velocity_block = IncNS::MomentumPreconditioner::BlockJacobi;
+    this->param.linear_solver.preconditioner.velocity_block.type =
+      VelocityBlockPreconditioner::InverseMomentumMatrix;
 
     // preconditioner Schur-complement block
-    this->param.preconditioner_pressure_block =
-      IncNS::SchurComplementPreconditioner::LaplaceOperator;
+    this->param.linear_solver.preconditioner.schur_complement.type =
+      SchurComplementPreconditioner::LaplaceOperator;
   }
 
   void
@@ -250,7 +242,7 @@ private:
       }
     }
 
-    this->grid->triangulation->refine_global(this->param.grid.n_refine_global);
+    this->grid->triangulation->refine_global(this->param.spatial_disc.grid_data.n_refine_global);
   }
 
   void
@@ -260,7 +252,7 @@ private:
       typename std::pair<dealii::types::boundary_id, std::shared_ptr<dealii::Function<dim>>>;
 
     AssertThrow(boundary_condition == BoundaryCondition::VelocityInflow,
-                dealii::ExcMessage("not implemented."));
+                dealii::ExcNotImplemented());
 
     // fill boundary descriptor velocity
     {
@@ -343,14 +335,11 @@ private:
     pp_data.output_data.time_control_data.is_active = this->output_parameters.write;
     pp_data.output_data.directory                   = this->output_parameters.directory + "vtu/";
     pp_data.output_data.filename                    = this->output_parameters.filename;
-    pp_data.output_data.write_vorticity             = false;
-    pp_data.output_data.write_divergence            = false;
-    pp_data.output_data.write_velocity_magnitude    = false;
-    pp_data.output_data.write_vorticity_magnitude   = false;
-    pp_data.output_data.write_processor_id          = false;
-    pp_data.output_data.write_q_criterion           = false;
-    pp_data.output_data.degree                      = this->param.degree_u;
-    pp_data.output_data.write_higher_order          = true;
+
+    pp_data.output_data.write_divergence = false;
+
+    pp_data.output_data.degree             = this->param.spatial_disc.degree_u;
+    pp_data.output_data.write_higher_order = true;
 
     std::shared_ptr<PostProcessor<dim, Number>> pp;
     pp.reset(new Darcy::PostProcessor<dim, Number>(pp_data, this->mpi_comm));
@@ -363,13 +352,9 @@ private:
 
   bool apply_symmetry_bc = true;
 
-  IncNS::FormulationViscousTerm const formulation_viscous_term =
-    IncNS::FormulationViscousTerm::LaplaceFormulation;
-
   double const inflow_velocity = 1.0e-3;
   double const viscosity       = 1.0;
-  double const density         = 1.0e-1;
-  double const permeability    = 1. / 3.;
+  double const density         = 1.0;
 
   double const H = 1.0;
   double const L = 1.0;

@@ -31,17 +31,17 @@
 
 // ExaDG
 #include <exadg/darcy/postprocessor/postprocessor.h>
+#include <exadg/darcy/user_interface/field_functions.h>
+#include <exadg/darcy/user_interface/parameters.h>
 #include <exadg/grid/grid.h>
 #include <exadg/incompressible_navier_stokes/user_interface/boundary_descriptor.h>
-#include <exadg/darcy/user_interface/field_functions.h>
-#include <exadg/incompressible_navier_stokes/user_interface/parameters.h>
 #include <exadg/utilities/output_parameters.h>
 #include <exadg/utilities/resolution_parameters.h>
 
+#include <utility>
+
 namespace ExaDG
 {
-template<int>
-class Mesh;
 
 namespace Darcy
 {
@@ -58,31 +58,11 @@ public:
   ApplicationBase(std::string parameter_file, MPI_Comm const & comm)
     : mpi_comm(comm),
       pcout(std::cout, dealii::Utilities::MPI::this_mpi_process(mpi_comm) == 0),
-      parameter_file(parameter_file)
+      parameter_file(std::move(parameter_file))
   {
   }
 
   virtual ~ApplicationBase() = default;
-
-  void
-  set_parameters_throughput_study(unsigned int const degree,
-                                  unsigned int const refine_space,
-                                  unsigned int const n_subdivisions_1d_hypercube)
-  {
-    this->param.degree_u                         = degree;
-    this->param.grid.n_refine_global             = refine_space;
-    this->param.grid.n_subdivisions_1d_hypercube = n_subdivisions_1d_hypercube;
-  }
-
-  void
-  set_parameters_convergence_study(unsigned int const degree,
-                                   unsigned int const refine_space,
-                                   unsigned int const refine_time)
-  {
-    this->param.degree_u             = degree;
-    this->param.grid.n_refine_global = refine_space;
-    this->param.n_refine_time        = refine_time;
-  }
 
   virtual void
   setup()
@@ -90,11 +70,11 @@ public:
     parse_parameters();
 
     set_parameters();
-    param.check(pcout);
+    param.check();
     param.print(pcout, "List of parameters:");
 
     // grid
-    grid = std::make_shared<Grid<dim>>(param.grid, mpi_comm);
+    grid = std::make_shared<Grid<dim>>(param.spatial_disc.grid_data, mpi_comm);
     create_grid();
     print_grid_info(pcout, *grid);
 
@@ -111,7 +91,7 @@ public:
   virtual std::shared_ptr<Darcy::PostProcessor<dim, Number>>
   create_postprocessor() = 0;
 
-  IncNS::Parameters const &
+  Parameters const &
   get_parameters() const
   {
     return param;
@@ -149,11 +129,11 @@ protected:
 
   dealii::ConditionalOStream pcout;
 
-  IncNS::Parameters param;
+  Parameters param;
 
   std::shared_ptr<Grid<dim>> grid;
 
-  std::shared_ptr<FieldFunctions<dim, Number>>     field_functions;
+  std::shared_ptr<FieldFunctions<dim, Number>>    field_functions;
   std::shared_ptr<IncNS::BoundaryDescriptor<dim>> boundary_descriptor;
 
   std::string parameter_file;

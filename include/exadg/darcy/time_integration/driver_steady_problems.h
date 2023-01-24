@@ -52,10 +52,10 @@ public:
 
   using Operator = OperatorCoupled<dim, Number>;
 
-  DriverSteadyProblems(std::shared_ptr<Operator>                              operator_,
-                       IncNS::Parameters const &                              param_,
-                       MPI_Comm const &                                       mpi_comm_,
-                       std::shared_ptr<PostProcessorInterface<Number>> postprocessor_);
+  DriverSteadyProblems(std::shared_ptr<Operator>                       pde_operator,
+                       Parameters const &                              param,
+                       MPI_Comm const &                                mpi_comm,
+                       std::shared_ptr<PostProcessorInterface<Number>> postprocessor);
 
   void
   setup();
@@ -84,7 +84,7 @@ private:
 
   std::shared_ptr<Operator> pde_operator;
 
-  IncNS::Parameters const & param;
+  Parameters const & param;
 
   MPI_Comm const mpi_comm;
 

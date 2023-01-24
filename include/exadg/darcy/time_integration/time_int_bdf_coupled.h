@@ -57,7 +57,7 @@ class TimeIntBDFCoupled : public TimeIntBDFBase<Number>
 
 public:
   TimeIntBDFCoupled(std::shared_ptr<Operator>                       operator_in,
-                    IncNS::Parameters const &                       param_in,
+                    Parameters const &                       param_in,
                     MPI_Comm const &                                mpi_comm_in,
                     std::shared_ptr<PostProcessorInterface<Number>> postprocessor_in);
 
@@ -136,11 +136,7 @@ private:
   void
   postprocessing() const final;
 
-  IncNS::Parameters const & param;
-
-  // number of refinement steps, where the time step size is reduced in
-  // factors of 2 with each refinement
-  unsigned int const refine_steps_time;
+  Parameters const & param;
 
   bool use_extrapolation;
 
@@ -152,7 +148,7 @@ private:
   // iteration counts
   std::pair<
     unsigned int /* calls */,
-    std::tuple<unsigned long long, unsigned long long> /* iteration counts {Newton, linear} */>
+    unsigned long long> /* iteration counts (linear) */
     iterations;
 
   // postprocessor

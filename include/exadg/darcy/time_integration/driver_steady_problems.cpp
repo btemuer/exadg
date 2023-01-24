@@ -26,7 +26,7 @@
 #include <exadg/darcy/postprocessor/postprocessor_interface.h>
 #include <exadg/darcy/spatial_discretization/operator_coupled.h>
 #include <exadg/darcy/time_integration/driver_steady_problems.h>
-#include <exadg/incompressible_navier_stokes/user_interface/parameters.h>
+#include <exadg/darcy/user_interface/parameters.h>
 #include <exadg/utilities/print_solver_results.h>
 
 namespace ExaDG
@@ -35,16 +35,16 @@ namespace Darcy
 {
 template<int dim, typename Number>
 DriverSteadyProblems<dim, Number>::DriverSteadyProblems(
-  std::shared_ptr<Operator>                       operator_,
-  const IncNS::Parameters &                       param_,
-  const MPI_Comm &                                mpi_comm_,
-  std::shared_ptr<PostProcessorInterface<Number>> postprocessor_)
-  : pde_operator(operator_),
-    param(param_),
-    mpi_comm(mpi_comm_),
+  std::shared_ptr<Operator>                       pde_operator,
+  Parameters const &                              param,
+  const MPI_Comm &                                mpi_comm,
+  std::shared_ptr<PostProcessorInterface<Number>> postprocessor)
+  : pde_operator(pde_operator),
+    param(param),
+    mpi_comm(mpi_comm),
     timer_tree(std::make_shared<TimerTree>()),
-    pcout(std::cout, dealii::Utilities::MPI::this_mpi_process(mpi_comm_) == 0),
-    postprocessor(postprocessor_),
+    pcout(std::cout, dealii::Utilities::MPI::this_mpi_process(mpi_comm) == 0),
+    postprocessor(postprocessor),
     iterations({0, {0, 0}})
 {
 }
@@ -125,7 +125,7 @@ DriverSteadyProblems<dim, Number>::do_solve()
 
   // solve coupled system of equations
   unsigned int const n_iter =
-    pde_operator->solve(solution, rhs_vector, this->param.update_preconditioner_coupled);
+    pde_operator->solve(solution, rhs_vector, this->param.linear_solver.preconditioner.update);
 
   print_solver_info_linear(pcout, n_iter, timer.wall_time());
 

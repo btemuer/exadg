@@ -26,7 +26,6 @@ namespace ExaDG
 {
 namespace Darcy
 {
-
 template<int dim>
 class InflowVelocityBC : public dealii::Function<dim>
 {
@@ -114,63 +113,61 @@ private:
   void
   set_parameters() final
   {
-    // DEFINES DUE TO THE SHARED IncNS PARAMS INTERFACE
-    this->param.equation_type                = IncNS::EquationType::NavierStokes;
-    this->param.IP_formulation_viscous       = IncNS::InteriorPenaltyFormulation::SIPG;
-    this->param.treatment_of_convective_term = IncNS::TreatmentOfConvectiveTerm::Implicit;
-    this->param.apply_penalty_terms_in_postprocessing_step = false;
-    this->param.use_continuity_penalty                     = false;
-    this->param.use_divergence_penalty                     = false;
-
     // MATHEMATICAL MODEL
-    this->param.problem_type    = IncNS::ProblemType::Unsteady;
-    this->param.right_hand_side = false;
+    this->param.math_model.problem_type    = ProblemType::Unsteady;
+    this->param.math_model.right_hand_side = false;
 
     // PHYSICAL QUANTITIES
-    this->param.viscosity  = viscosity;
-    this->param.density    = density;
-    this->param.start_time = start_time;
-    this->param.end_time   = end_time;
+    this->param.physical_quantities.start_time = start_time;
+    this->param.physical_quantities.end_time   = end_time;
+    this->param.physical_quantities.viscosity  = viscosity;
+    this->param.physical_quantities.density    = density;
 
     // TEMPORAL DISCRETIZATION
-    this->param.solver_type                   = IncNS::SolverType::Unsteady;
-    this->param.temporal_discretization       = IncNS::TemporalDiscretization::BDFCoupledSolution;
-    this->param.order_time_integrator         = 3;
-    this->param.start_with_low_order          = true;
-    this->param.calculation_of_time_step_size = IncNS::TimeStepCalculation::UserSpecified;
-    this->param.time_step_size                = 1.0e-1;
+    this->param.temporal_disc.solver_type           = TemporalSolverType::Unsteady;
+    this->param.temporal_disc.method                = TemporalDiscretizationMethod::BDFCoupled;
+    this->param.temporal_disc.order_time_integrator = 3;
+    this->param.temporal_disc.start_with_low_order  = true;
+    this->param.temporal_disc.calculation_of_time_step_size = TimeStepCalculation::UserSpecified;
+    this->param.temporal_disc.time_step_size                = 1.0e-1;
 
     // output of solver information
-    this->param.solver_info_data.interval_time_steps = 1;
+    this->param.temporal_disc.solver_info_data.interval_time_steps = 1;
 
     // SPATIAL DISCRETIZATION
-    this->param.spatial_discretization  = IncNS::SpatialDiscretization::L2;
-    this->param.grid.triangulation_type = TriangulationType::Distributed;
-    this->param.grid.n_refine_global    = 6;
-    this->param.degree_u                = 3;
-    this->param.grid.mapping_degree     = this->param.degree_u;
-    this->param.degree_p                = IncNS::DegreePressure::MixedOrder;
+    this->param.spatial_disc.degree_u = 3;
+    this->param.spatial_disc.degree_p = DegreePressure::MixedOrder;
+
+    this->param.spatial_disc.method                       = SpatialDiscretizationMethod::L2;
+    this->param.spatial_disc.grid_data.triangulation_type = TriangulationType::Distributed;
+    this->param.spatial_disc.grid_data.n_refine_global    = 3;
+    this->param.spatial_disc.grid_data.mapping_degree     = this->param.spatial_disc.degree_u;
+
 
     // COUPLED DARCY SOLVER
 
     // linear solver
-    this->param.solver_coupled      = IncNS::SolverCoupled::FGMRES;
-    this->param.solver_data_coupled = SolverData(1e4, 1.e-12, 1.e-8, 200);
+    this->param.linear_solver.method = LinearSolverMethod::FGMRES;
+    this->param.linear_solver.data   = SolverData(1e4, 1.e-12, 1.e-8);
 
-    this->param.update_preconditioner_coupled                  = true;
-    this->param.update_preconditioner_coupled_every_time_steps = 1;
+    this->param.linear_solver.preconditioner.update                  = true;
+    this->param.linear_solver.preconditioner.update_every_time_steps = 1;
 
     // preconditioning linear solver
-    this->param.preconditioner_coupled = IncNS::PreconditionerCoupled::BlockTriangular;
+    this->param.linear_solver.preconditioner.type = PreconditionerCoupled::BlockTriangular;
 
     // preconditioner velocity/momentum block
-    this->param.implement_block_diagonal_preconditioner_matrix_free = true;
-    this->param.use_cell_based_face_loops = true;
-    this->param.preconditioner_velocity_block = IncNS::MomentumPreconditioner::BlockJacobi;
+    this->param.linear_solver.preconditioner.velocity_block.type =
+      VelocityBlockPreconditioner::BlockJacobi;
+    this->param.linear_solver.preconditioner.velocity_block.block_jacobi.implement_matrix_free =
+      true;
 
     // preconditioner Schur-complement block
-    this->param.preconditioner_pressure_block =
-      IncNS::SchurComplementPreconditioner::LaplaceOperator;
+    this->param.linear_solver.preconditioner.schur_complement.type =
+      SchurComplementPreconditioner::LaplaceOperator;
+
+    // NUMERICAL PARAMETERS
+    this->param.numerical.use_cell_based_face_loops = true;
   }
 
   void
@@ -197,7 +194,7 @@ private:
       }
     }
 
-    this->grid->triangulation->refine_global(this->param.grid.n_refine_global);
+    this->grid->triangulation->refine_global(this->param.spatial_disc.grid_data.n_refine_global);
   }
 
   void
@@ -292,14 +289,9 @@ private:
     pp_data.output_data.directory = this->output_parameters.directory + "vtu/";
     pp_data.output_data.filename  = this->output_parameters.filename;
 
-    pp_data.output_data.write_vorticity           = false;
-    pp_data.output_data.write_divergence          = false;
-    pp_data.output_data.write_velocity_magnitude  = false;
-    pp_data.output_data.write_vorticity_magnitude = false;
-    pp_data.output_data.write_processor_id        = false;
-    pp_data.output_data.write_q_criterion         = false;
+    pp_data.output_data.write_divergence = false;
 
-    pp_data.output_data.degree             = this->param.degree_u;
+    pp_data.output_data.degree             = this->param.spatial_disc.degree_u;
     pp_data.output_data.write_higher_order = true;
 
     std::shared_ptr<PostProcessor<dim, Number>> pp;

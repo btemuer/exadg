@@ -62,7 +62,7 @@ get_dofs_per_element(std::string const & input_file,
   else if(pressure_degree == "EqualOrder")
     pressure_dofs_per_element = dealii::Utilities::pow(degree + 1, dim);
   else
-    AssertThrow(false, dealii::ExcMessage("Not implemented."));
+    AssertThrow(false, dealii::ExcNotImplemented());
 
   return velocity_dofs_per_element + pressure_dofs_per_element;
 }

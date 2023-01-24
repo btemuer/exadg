@@ -40,7 +40,7 @@ OperatorCoupled<dim, Number>::OperatorCoupled(
   std::shared_ptr<Grid<dim> const>                      grid,
   std::shared_ptr<IncNS::BoundaryDescriptor<dim> const> boundary_descriptor,
   std::shared_ptr<FieldFunctions<dim, Number> const>    field_functions,
-  IncNS::Parameters const &                             param,
+  Parameters const &                                    param,
   std::string                                           field,
   MPI_Comm const &                                      mpi_comm)
   : dealii::Subscriptor(),
@@ -49,7 +49,7 @@ OperatorCoupled<dim, Number>::OperatorCoupled(
     field_functions(field_functions),
     param(param),
     field(std::move(field)),
-    fe_p(param.get_degree_p(param.degree_u)),
+    fe_p(param.get_degree_p(param.spatial_disc.degree_u)),
     dof_handler_u(*(grid->triangulation)),
     dof_handler_p(*(grid->triangulation)),
     mpi_comm(mpi_comm),
@@ -97,7 +97,7 @@ OperatorCoupled<dim, Number>::fill_matrix_free_data(
   matrix_free_data.append_mapping_flags(
     IncNS::Operators::GradientKernel<dim, Number>::get_mapping_flags());
 
-  if(param.right_hand_side)
+  if(param.math_model.right_hand_side)
     matrix_free_data.append_mapping_flags(
       IncNS::Operators::RHSKernel<dim, Number>::get_mapping_flags());
 
@@ -115,13 +115,14 @@ OperatorCoupled<dim, Number>::fill_matrix_free_data(
 
   // Quadrature
   {
-    matrix_free_data.insert_quadrature(dealii::QGauss<1>(param.degree_u + 1), field + quad_index_u);
-    matrix_free_data.insert_quadrature(dealii::QGauss<1>(param.get_degree_p(param.degree_u) + 1),
-                                       field + quad_index_p);
-    matrix_free_data.insert_quadrature(dealii::QGaussLobatto<1>(param.degree_u + 1),
+    matrix_free_data.insert_quadrature(dealii::QGauss<1>(param.spatial_disc.degree_u + 1),
+                                       field + quad_index_u);
+    matrix_free_data.insert_quadrature(
+      dealii::QGauss<1>(param.get_degree_p(param.spatial_disc.degree_u) + 1), field + quad_index_p);
+    matrix_free_data.insert_quadrature(dealii::QGaussLobatto<1>(param.spatial_disc.degree_u + 1),
                                        field + quad_index_u_gauss_lobatto);
-    matrix_free_data.insert_quadrature(dealii::QGaussLobatto<1>(param.get_degree_p(param.degree_u) +
-                                                                1),
+    matrix_free_data.insert_quadrature(dealii::QGaussLobatto<1>(
+                                         param.get_degree_p(param.spatial_disc.degree_u) + 1),
                                        field + quad_index_p_gauss_lobatto);
   }
 }
@@ -164,31 +165,31 @@ OperatorCoupled<dim, Number>::initialize_solver()
   linear_operator.initialize(*this);
 
   // setup linear solver
-  if(param.solver_coupled == IncNS::SolverCoupled::GMRES)
+  if(param.linear_solver.method == LinearSolverMethod::GMRES)
   {
     Krylov::SolverDataGMRES solver_data;
-    solver_data.max_iter             = this->param.solver_data_coupled.max_iter;
-    solver_data.solver_tolerance_abs = this->param.solver_data_coupled.abs_tol;
-    solver_data.solver_tolerance_rel = this->param.solver_data_coupled.rel_tol;
-    solver_data.max_n_tmp_vectors    = this->param.solver_data_coupled.max_krylov_size;
+    solver_data.max_iter             = this->param.linear_solver.data.max_iter;
+    solver_data.solver_tolerance_abs = this->param.linear_solver.data.abs_tol;
+    solver_data.solver_tolerance_rel = this->param.linear_solver.data.rel_tol;
+    solver_data.max_n_tmp_vectors    = this->param.linear_solver.data.max_krylov_size;
     solver_data.compute_eigenvalues  = false;
 
-    if(this->param.preconditioner_coupled != IncNS::PreconditionerCoupled::None)
+    if(this->param.linear_solver.preconditioner.type != PreconditionerCoupled::None)
       solver_data.use_preconditioner = true;
 
     linear_solver = std::make_shared<
       Krylov::SolverGMRES<LinearOperatorCoupled<dim, Number>, Preconditioner, BlockVectorType>>(
       linear_operator, block_preconditioner, solver_data, mpi_comm);
   }
-  else if(param.solver_coupled == IncNS::SolverCoupled::FGMRES)
+  else if(param.linear_solver.method == LinearSolverMethod::FGMRES)
   {
     Krylov::SolverDataFGMRES solver_data;
-    solver_data.max_iter             = param.solver_data_coupled.max_iter;
-    solver_data.solver_tolerance_abs = param.solver_data_coupled.abs_tol;
-    solver_data.solver_tolerance_rel = param.solver_data_coupled.rel_tol;
-    solver_data.max_n_tmp_vectors    = param.solver_data_coupled.max_krylov_size;
+    solver_data.max_iter             = param.linear_solver.data.max_iter;
+    solver_data.solver_tolerance_abs = param.linear_solver.data.abs_tol;
+    solver_data.solver_tolerance_rel = param.linear_solver.data.rel_tol;
+    solver_data.max_n_tmp_vectors    = param.linear_solver.data.max_krylov_size;
 
-    if(param.preconditioner_coupled != IncNS::PreconditionerCoupled::None)
+    if(param.linear_solver.preconditioner.type != PreconditionerCoupled::None)
       solver_data.use_preconditioner = true;
 
     linear_solver = std::make_shared<
@@ -262,7 +263,7 @@ OperatorCoupled<dim, Number>::rhs(OperatorCoupled::BlockVectorType & dst, double
   {
     gradient_operator.rhs(dst.block(0), time);
 
-    if(param.right_hand_side)
+    if(param.math_model.right_hand_side)
       rhs_operator.evaluate_add(dst.block(0), time);
   }
 
@@ -411,9 +412,9 @@ OperatorCoupled<dim, Number>::apply_block_preconditioner(
   OperatorCoupled::BlockVectorType &       dst,
   OperatorCoupled::BlockVectorType const & src) const
 {
-  auto const type = param.preconditioner_coupled;
+  auto const type = param.linear_solver.preconditioner.type;
 
-  if(type == IncNS::PreconditionerCoupled::BlockDiagonal)
+  if(type == PreconditionerCoupled::BlockDiagonal)
   {
     /*                        / A^{-1}   0    \   / A^{-1}  0 \   / I      0    \
      *   -> P_diagonal^{-1} = |               | = |           | * |             |
@@ -441,7 +442,7 @@ OperatorCoupled<dim, Number>::apply_block_preconditioner(
       apply_preconditioner_velocity_block(dst.block(0), src.block(0));
     }
   }
-  else if(type == IncNS::PreconditionerCoupled::BlockTriangular)
+  else if(type == PreconditionerCoupled::BlockTriangular)
   {
     /*
      *                         / A^{-1}  0 \   / I  B^{T} \   / I      0    \
@@ -485,7 +486,7 @@ OperatorCoupled<dim, Number>::apply_block_preconditioner(
       apply_preconditioner_velocity_block(dst.block(0), vec_tmp_velocity);
     }
   }
-  else if(type == IncNS::PreconditionerCoupled::BlockTriangularFactorization)
+  else if(type == PreconditionerCoupled::BlockTriangularFactorization)
   {
     /*
      *                          / I  - A^{-1} B^{T} \   / I      0    \   / I   0 \   / A^{-1} 0 \
@@ -569,13 +570,13 @@ template<int dim, typename Number>
 void
 OperatorCoupled<dim, Number>::initialize_temporary_vectors()
 {
-  auto type = this->param.preconditioner_coupled;
+  auto type = this->param.linear_solver.preconditioner.type;
 
-  if(type == IncNS::PreconditionerCoupled::BlockTriangular)
+  if(type == PreconditionerCoupled::BlockTriangular)
   {
     this->initialize_vector_velocity(vec_tmp_velocity);
   }
-  else if(type == IncNS::PreconditionerCoupled::BlockTriangularFactorization)
+  else if(type == PreconditionerCoupled::BlockTriangularFactorization)
   {
     this->initialize_vector_pressure(vec_tmp_pressure);
     this->initialize_vector_velocity(vec_tmp_velocity);
@@ -587,21 +588,21 @@ template<int dim, typename Number>
 void
 OperatorCoupled<dim, Number>::initialize_preconditioner_velocity_block()
 {
-  auto const type = param.preconditioner_velocity_block;
+  auto const type = param.linear_solver.preconditioner.velocity_block.type;
 
-  if(type == IncNS::MomentumPreconditioner::PointJacobi)
+  if(type == VelocityBlockPreconditioner::PointJacobi)
   {
     preconditioner_velocity_block =
       std::make_shared<JacobiPreconditioner<MomentumOperator<dim, Number>>>(
         this->momentum_operator);
   }
-  else if(type == IncNS::MomentumPreconditioner::BlockJacobi)
+  else if(type == VelocityBlockPreconditioner::BlockJacobi)
   {
     preconditioner_velocity_block =
       std::make_shared<BlockJacobiPreconditioner<MomentumOperator<dim, Number>>>(
         this->momentum_operator);
   }
-  else if(type == IncNS::MomentumPreconditioner::InverseMassMatrix)
+  else if(type == VelocityBlockPreconditioner::InverseMomentumMatrix)
   {
     preconditioner_velocity_block =
       std::make_shared<InverseMassPreconditioner<dim, dim, Number>>(get_matrix_free(),
@@ -609,7 +610,7 @@ OperatorCoupled<dim, Number>::initialize_preconditioner_velocity_block()
                                                                     get_quad_index_velocity());
   }
   else
-    AssertThrow(type == IncNS::MomentumPreconditioner::None, dealii::ExcNotImplemented());
+    AssertThrow(type == VelocityBlockPreconditioner::None, dealii::ExcNotImplemented());
 }
 
 template<int dim, typename Number>
@@ -618,19 +619,15 @@ OperatorCoupled<dim, Number>::apply_preconditioner_velocity_block(
   OperatorCoupled::VectorType &       dst,
   OperatorCoupled::VectorType const & src) const
 {
-  auto const type = param.preconditioner_velocity_block;
+  auto const type = param.linear_solver.preconditioner.velocity_block.type;
 
-
-  if(type == IncNS::MomentumPreconditioner::PointJacobi ||
-     type == IncNS::MomentumPreconditioner::BlockJacobi)
+  if(type == VelocityBlockPreconditioner::PointJacobi ||
+     type == VelocityBlockPreconditioner::BlockJacobi ||
+     type == VelocityBlockPreconditioner::InverseMomentumMatrix)
   {
     preconditioner_velocity_block->vmult(dst, src);
   }
-  else if(type == IncNS::MomentumPreconditioner::InverseMassMatrix)
-  {
-    preconditioner_velocity_block->vmult(dst, src);
-  }
-  else if(type == IncNS::MomentumPreconditioner::None)
+  else if(type == VelocityBlockPreconditioner::None)
     dst = src;
   else
     AssertThrow(false, dealii::ExcNotImplemented());
@@ -640,17 +637,12 @@ template<int dim, typename Number>
 void
 OperatorCoupled<dim, Number>::initialize_preconditioner_pressure_block()
 {
-  auto const type = param.preconditioner_pressure_block;
+  auto const type = param.linear_solver.preconditioner.schur_complement.type;
 
-  if(type == IncNS::SchurComplementPreconditioner::InverseMassMatrix)
-    preconditioner_pressure_block =
-      std::make_shared<InverseMassPreconditioner<dim, 1, Number>>(get_matrix_free(),
-                                                                  get_dof_index_pressure(),
-                                                                  get_quad_index_pressure());
-  else if(type == IncNS::SchurComplementPreconditioner::LaplaceOperator)
+  if(type == SchurComplementPreconditioner::LaplaceOperator)
     setup_multigrid_preconditioner_pressure_block();
   else
-    AssertThrow(type == IncNS::SchurComplementPreconditioner::None, dealii::ExcNotImplemented());
+    AssertThrow(type == SchurComplementPreconditioner::None, dealii::ExcNotImplemented());
 }
 
 template<int dim, typename Number>
@@ -669,15 +661,16 @@ OperatorCoupled<dim, Number>::setup_multigrid_preconditioner_pressure_block()
   std::shared_ptr<MultigridPoisson> mg_preconditioner =
     std::dynamic_pointer_cast<MultigridPoisson>(preconditioner_pressure_block);
 
-  mg_preconditioner->initialize(param.multigrid_data_pressure_block,
-                                &get_dof_handler_p().get_triangulation(),
-                                grid->get_coarse_triangulations(),
-                                get_dof_handler_p().get_fe(),
-                                get_mapping(),
-                                laplace_operator_data,
-                                false,
-                                laplace_operator_data.bc->dirichlet_bc,
-                                grid->periodic_faces);
+  mg_preconditioner->initialize(
+    param.linear_solver.preconditioner.schur_complement.laplace_operator.multigrid_data,
+    &get_dof_handler_p().get_triangulation(),
+    grid->get_coarse_triangulations(),
+    get_dof_handler_p().get_fe(),
+    get_mapping(),
+    laplace_operator_data,
+    false,
+    laplace_operator_data.bc->dirichlet_bc,
+    grid->periodic_faces);
 }
 
 template<int dim, typename Number>
@@ -705,12 +698,11 @@ OperatorCoupled<dim, Number>::apply_preconditioner_pressure_block(
   OperatorCoupled::VectorType &       dst,
   OperatorCoupled::VectorType const & src) const
 {
-  auto const type = param.preconditioner_pressure_block;
+  auto const type = param.linear_solver.preconditioner.schur_complement.type;
 
-  if(type == IncNS::SchurComplementPreconditioner::InverseMassMatrix ||
-     type == IncNS::SchurComplementPreconditioner::LaplaceOperator)
+  if(type == SchurComplementPreconditioner::LaplaceOperator)
     preconditioner_pressure_block->vmult(dst, src);
-  else if(type == IncNS::SchurComplementPreconditioner::None)
+  else if(type == SchurComplementPreconditioner::None)
     dst = src;
   else
     AssertThrow(false, dealii::ExcNotImplemented())
@@ -737,7 +729,7 @@ OperatorCoupled<dim, Number>::initialize_operators()
     data.quad_index_velocity                    = get_quad_index_velocity();
     data.kernel_data.porosity_field             = field_functions->porosity_field;
     data.kernel_data.inverse_permeability_field = field_functions->inverse_permeability_field;
-    data.kernel_data.viscosity                  = param.viscosity;
+    data.kernel_data.viscosity                  = param.physical_quantities.viscosity;
 
     permeability_operator.initialize(*matrix_free, data);
   }
@@ -746,21 +738,22 @@ OperatorCoupled<dim, Number>::initialize_operators()
   {
     MomentumOperatorData<dim> data;
 
-    data.unsteady_problem = param.problem_type == IncNS::ProblemType::Unsteady;
+    data.unsteady_problem = param.math_model.problem_type == ProblemType::Unsteady;
 
     data.dof_index  = get_dof_index_velocity();
     data.quad_index = get_quad_index_velocity();
 
     data.implement_block_diagonal_preconditioner_matrix_free =
-      param.implement_block_diagonal_preconditioner_matrix_free;
+      param.linear_solver.preconditioner.velocity_block.block_jacobi.implement_matrix_free;
     data.solver_block_diagonal         = Elementwise::Solver::CG;
     data.preconditioner_block_diagonal = Elementwise::Preconditioner::InverseMassMatrix;
-    data.solver_data_block_diagonal    = param.solver_data_block_diagonal;
+    data.solver_data_block_diagonal =
+      param.linear_solver.preconditioner.velocity_block.block_jacobi.solver_data;
 
     data.permeability_kernel_data.porosity_field = field_functions->porosity_field;
     data.permeability_kernel_data.inverse_permeability_field =
       field_functions->inverse_permeability_field;
-    data.permeability_kernel_data.viscosity = param.viscosity;
+    data.permeability_kernel_data.viscosity = param.physical_quantities.viscosity;
 
     momentum_operator.initialize(*matrix_free, constraint_u, data);
   }
@@ -783,9 +776,6 @@ OperatorCoupled<dim, Number>::initialize_operators()
     data.dof_index_velocity   = get_dof_index_velocity();
     data.dof_index_pressure   = get_dof_index_pressure();
     data.quad_index           = get_quad_index_velocity();
-    data.integration_by_parts = true;
-    data.formulation          = IncNS::FormulationPressureGradientTerm::Weak;
-    data.use_boundary_data    = true;
     data.bc                   = boundary_descriptor->pressure;
 
     gradient_operator.initialize(*matrix_free, data);
@@ -798,7 +788,6 @@ OperatorCoupled<dim, Number>::initialize_operators()
     data.dof_index_velocity         = get_dof_index_velocity();
     data.dof_index_pressure         = get_dof_index_pressure();
     data.quad_index                 = get_quad_index_velocity();
-    data.use_boundary_data          = true;
     data.bc                         = boundary_descriptor->velocity;
     data.kernel_data.porosity_field = field_functions->porosity_field;
 
@@ -810,14 +799,8 @@ template<int dim, typename Number>
 void
 OperatorCoupled<dim, Number>::distribute_dofs()
 {
-  if(param.spatial_discretization == IncNS::SpatialDiscretization::L2)
-  {
-    fe_u = std::make_shared<dealii::FESystem<dim>>(dealii::FE_DGQ<dim>(param.degree_u), dim);
-  }
-  else if(param.spatial_discretization == IncNS::SpatialDiscretization::HDIV)
-  {
-    fe_u = std::make_shared<dealii::FE_RaviartThomasNodal<dim>>(param.degree_u - 1);
-  }
+  if(param.spatial_disc.method == SpatialDiscretizationMethod::L2)
+    fe_u = std::make_shared<dealii::FESystem<dim>>(dealii::FE_DGQ<dim>(param.spatial_disc.degree_u), dim);
   else
     AssertThrow(false, dealii::ExcMessage("FE not implemented."));
 
@@ -825,34 +808,21 @@ OperatorCoupled<dim, Number>::distribute_dofs()
   dof_handler_u.distribute_dofs(*fe_u);
   dof_handler_p.distribute_dofs(fe_p);
 
-  unsigned int ndofs_per_cell_velocity;
-  if(param.spatial_discretization == IncNS::SpatialDiscretization::L2)
-    ndofs_per_cell_velocity = dealii::Utilities::pow(param.degree_u + 1, dim) * dim;
-  else if(param.spatial_discretization == IncNS::SpatialDiscretization::HDIV)
-    ndofs_per_cell_velocity =
-      dealii::Utilities::pow(param.degree_u, dim - 1) * (param.degree_u + 1) * dim;
-  else
-    AssertThrow(false, dealii::ExcMessage("FE not implemented."));
+  unsigned int const ndofs_per_cell_velocity = dealii::Utilities::pow(param.spatial_disc.degree_u + 1, dim) * dim;
+
 
   unsigned int const ndofs_per_cell_pressure =
-    dealii::Utilities::pow(param.get_degree_p(param.degree_u) + 1, dim);
+    dealii::Utilities::pow(param.get_degree_p(param.spatial_disc.degree_u) + 1, dim);
 
   pcout << "Velocity:" << std::endl;
-  if(param.spatial_discretization == IncNS::SpatialDiscretization::L2)
-    print_parameter(pcout, "degree of 1D polynomials", param.degree_u);
-  else if(param.spatial_discretization == IncNS::SpatialDiscretization::HDIV)
-  {
-    print_parameter(pcout, "degree of 1D polynomials (normal)", param.degree_u);
-    print_parameter(pcout, "degree of 1D polynomials (tangential)", (param.degree_u - 1));
-  }
-  else
-    AssertThrow(false, dealii::ExcMessage("FE not implemented."));
+
+  print_parameter(pcout, "degree of 1D polynomials", param.spatial_disc.degree_u);
 
   print_parameter(pcout, "number of dofs per cell", ndofs_per_cell_velocity);
   print_parameter(pcout, "number of dofs (total)", dof_handler_u.n_dofs());
 
   pcout << "Pressure:" << std::endl;
-  print_parameter(pcout, "degree of 1D polynomials", param.get_degree_p(param.degree_u));
+  print_parameter(pcout, "degree of 1D polynomials", param.get_degree_p(param.spatial_disc.degree_u));
   print_parameter(pcout, "number of dofs per cell", ndofs_per_cell_pressure);
   print_parameter(pcout, "number of dofs (total)", dof_handler_p.n_dofs());
 

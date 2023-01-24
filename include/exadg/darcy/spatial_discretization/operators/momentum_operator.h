@@ -66,7 +66,7 @@ public:
   get_scaling_factor_mass_operator() const;
 
   void
-  set_scaling_factor_mass_operator(Number const factor);
+  set_scaling_factor_mass_operator(Number factor);
 
 private:
   void

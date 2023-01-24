@@ -64,7 +64,7 @@ Driver<dim, Number>::setup()
 
   matrix_free = std::make_shared<dealii::MatrixFree<dim, Number>>();
 
-  if(application->get_parameters().use_cell_based_face_loops)
+  if(application->get_parameters().numerical.use_cell_based_face_loops)
   {
     Categorization::do_cell_based_loops(*application->get_grid()->triangulation,
                                         matrix_free_data->data);
@@ -85,16 +85,18 @@ Driver<dim, Number>::setup()
   postprocessor->setup(*pde_operator);
 
   // setup time integrator before calling setup_solvers()
-  if(application->get_parameters().solver_type == IncNS::SolverType::Unsteady)
+  if(application->get_parameters().temporal_disc.solver_type ==
+     TemporalSolverType::Unsteady)
   {
     time_integrator = std::make_shared<TimeIntBDFCoupled<dim, Number>>(
       pde_operator, application->get_parameters(), mpi_comm, postprocessor);
 
-    time_integrator->setup(application->get_parameters().restarted_simulation);
+    time_integrator->setup(false); // no restart
 
     pde_operator->setup_solvers(time_integrator->get_scaling_factor_time_derivative_term());
   }
-  else if(application->get_parameters().solver_type == IncNS::SolverType::Steady)
+  else if(application->get_parameters().temporal_disc.solver_type ==
+          TemporalSolverType::Steady)
   {
     // initialize driver for steady state problem that depends on pde_operator
     driver_steady = std::make_shared<DriverSteadyProblems<dim, Number>>(
@@ -114,13 +116,14 @@ template<int dim, typename Number>
 void
 Driver<dim, Number>::solve() const
 {
-  if (application->get_parameters().problem_type == IncNS::ProblemType::Unsteady)
+  if(application->get_parameters().math_model.problem_type == ProblemType::Unsteady)
   {
     time_integrator->timeloop();
   }
-  else if(application->get_parameters().problem_type == IncNS::ProblemType::Steady)
+  else if(application->get_parameters().math_model.problem_type == ProblemType::Steady)
   {
-    if(application->get_parameters().solver_type == IncNS::SolverType::Steady)
+    if(application->get_parameters().temporal_disc.solver_type ==
+       TemporalSolverType::Steady)
       driver_steady->solve();
     else
       AssertThrow(false, dealii::ExcNotImplemented());
@@ -142,7 +145,7 @@ Driver<dim, Number>::print_performance_results(double const total_time) const
 
   // Iterations
   {
-    if(application->get_parameters().solver_type == IncNS::SolverType::Unsteady)
+    if(application->get_parameters().temporal_disc.solver_type == TemporalSolverType::Unsteady)
     {
       pcout << std::endl << "Average number of iterations:" << std::endl;
 
@@ -154,11 +157,11 @@ Driver<dim, Number>::print_performance_results(double const total_time) const
   {
     timer_tree.insert({"Darcy flow"}, total_time);
 
-    if(application->get_parameters().solver_type == IncNS::SolverType::Unsteady)
+    if(application->get_parameters().temporal_disc.solver_type == TemporalSolverType::Unsteady)
     {
       timer_tree.insert({"Darcy flow"}, time_integrator->get_timings());
     }
-    else if(application->get_parameters().solver_type == IncNS::SolverType::Steady)
+    else if(application->get_parameters().temporal_disc.solver_type == TemporalSolverType::Steady)
     {
       timer_tree.insert({"Darcy flow"}, driver_steady->get_timings());
     }
@@ -177,12 +180,12 @@ Driver<dim, Number>::print_performance_results(double const total_time) const
 
     // Throughput in DoFs/s per time step per core
     {
-      if(application->get_parameters().solver_type == IncNS::SolverType::Unsteady)
+      if(application->get_parameters().temporal_disc.solver_type == TemporalSolverType::Unsteady)
       {
         unsigned int const N_time_steps = time_integrator->get_number_of_time_steps();
         print_throughput_unsteady(pcout, DoFs, overall_time_avg, N_time_steps, N_mpi_processes);
       }
-      else if(application->get_parameters().solver_type == IncNS::SolverType::Steady)
+      else if(application->get_parameters().temporal_disc.solver_type == TemporalSolverType::Steady)
       {
         print_throughput_steady(pcout, DoFs, overall_time_avg, N_mpi_processes);
       }

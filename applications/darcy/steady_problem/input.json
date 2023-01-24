@@ -5,7 +5,7 @@
   },
   "Application": {
     "BoundaryConditionType": "VelocityInflow",
-    "ApplySymmetryBC": "true"
+    "ApplySymmetryBC": "false"
   },
   "Output": {
     "OutputDirectory" : "output/darcy/",

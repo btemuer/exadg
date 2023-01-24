@@ -38,7 +38,7 @@
 #include <exadg/incompressible_navier_stokes/spatial_discretization/operators/gradient_operator.h>
 #include <exadg/incompressible_navier_stokes/spatial_discretization/operators/rhs_operator.h>
 #include <exadg/incompressible_navier_stokes/user_interface/boundary_descriptor.h>
-#include <exadg/incompressible_navier_stokes/user_interface/parameters.h>
+#include <exadg/darcy/user_interface/parameters.h>
 #include <exadg/matrix_free/matrix_free_data.h>
 #include <exadg/operators/mass_operator.h>
 #include <exadg/poisson/preconditioners/multigrid_preconditioner.h>
@@ -152,7 +152,7 @@ public:
   OperatorCoupled(std::shared_ptr<Grid<dim> const>                      grid,
                   std::shared_ptr<IncNS::BoundaryDescriptor<dim> const> boundary_descriptor,
                   std::shared_ptr<FieldFunctions<dim, Number> const>    field_functions,
-                  IncNS::Parameters const &                             param,
+                  Parameters const &                             param,
                   std::string                                           field,
                   MPI_Comm const &                                      mpi_comm);
 
@@ -313,7 +313,7 @@ private:
   /*
    * List of parameters
    */
-  IncNS::Parameters const & param;
+  Parameters const & param;
 
   /*
    * A name describing the field being solved

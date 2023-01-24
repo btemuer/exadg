@@ -33,26 +33,25 @@ namespace Darcy
 {
 template<int dim, typename Number>
 TimeIntBDFCoupled<dim, Number>::TimeIntBDFCoupled(
-  std::shared_ptr<Operator>                       operator_in,
-  IncNS::Parameters const &                       param_in,
-  MPI_Comm const &                                mpi_comm_in,
-  std::shared_ptr<PostProcessorInterface<Number>> postprocessor_in)
-  : TimeIntBDFBase<Number>(param_in.start_time,
-                           param_in.end_time,
-                           param_in.max_number_of_time_steps,
-                           param_in.order_time_integrator,
-                           param_in.start_with_low_order,
-                           param_in.adaptive_time_stepping,
-                           param_in.restart_data,
-                           mpi_comm_in,
+  std::shared_ptr<Operator>                       pde_operator,
+  Parameters const &                              param,
+  MPI_Comm const &                                mpi_comm,
+  std::shared_ptr<PostProcessorInterface<Number>> postprocessor)
+  : TimeIntBDFBase<Number>(param.physical_quantities.start_time,
+                           param.physical_quantities.end_time,
+                           param.temporal_disc.max_number_of_time_steps,
+                           param.temporal_disc.order_time_integrator,
+                           param.temporal_disc.start_with_low_order,
+                           false, // no adaptive time stepping
+                           {},    // no restart
+                           mpi_comm,
                            false),
-    param(param_in),
-    refine_steps_time(param_in.n_refine_time),
+    param(param),
     use_extrapolation(true),
-    pde_operator(operator_in),
+    pde_operator(pde_operator),
     solution(this->order),
-    iterations({0, {0, 0}}),
-    postprocessor(postprocessor_in)
+    iterations({0, 0}),
+    postprocessor(postprocessor)
 {
 }
 
@@ -133,9 +132,11 @@ TimeIntBDFCoupled<dim, Number>::calculate_time_step_size()
 {
   double time_step{};
 
-  if(param.calculation_of_time_step_size == IncNS::TimeStepCalculation::UserSpecified)
+  if(param.temporal_disc.calculation_of_time_step_size ==
+     TimeStepCalculation::UserSpecified)
   {
-    time_step = calculate_const_time_step(param.time_step_size, refine_steps_time);
+    time_step =
+      calculate_const_time_step(param.temporal_disc.time_step_size, 0 /* no refinement*/);
 
     this->pcout << std::endl << "User specified time step size:" << std::endl << std::endl;
     print_parameter(this->pcout, "time step size", time_step);
@@ -225,7 +226,8 @@ TimeIntBDFCoupled<dim, Number>::get_velocities_and_times(
    *             times[2]  times[1]  times[0]
    */
   unsigned int current_order = this->order;
-  if(this->time_step_number <= this->order && this->param.start_with_low_order == true)
+  if(this->time_step_number <= this->order &&
+     this->param.temporal_disc.start_with_low_order == true)
   {
     current_order = this->time_step_number;
   }
@@ -258,7 +260,8 @@ TimeIntBDFCoupled<dim, Number>::get_velocities_and_times_np(
    *              times[3] times[2]  times[1]   times[0]
    */
   unsigned int current_order = this->order;
-  if(this->time_step_number <= this->order && this->param.start_with_low_order == true)
+  if(this->time_step_number <= this->order &&
+     this->param.temporal_disc.start_with_low_order == true)
   {
     current_order = this->time_step_number;
   }
@@ -322,7 +325,7 @@ TimeIntBDFCoupled<dim, Number>::do_timestep_solve()
                           this->get_scaling_factor_time_derivative_term());
 
     iterations.first += 1;
-    std::get<1>(iterations.second) += n_iter;
+    iterations.second += n_iter;
 
     // write output
     if(this->print_solver_info())
@@ -353,9 +356,9 @@ template<int dim, typename Number>
 bool
 TimeIntBDFCoupled<dim, Number>::print_solver_info() const
 {
-  return param.solver_info_data.write(this->global_timer.wall_time(),
-                                      this->time - this->start_time,
-                                      this->time_step_number);
+  return param.temporal_disc.solver_info_data.write(this->global_timer.wall_time(),
+                                                              this->time - this->start_time,
+                                                              this->time_step_number);
 }
 
 template<int dim, typename Number>
@@ -364,7 +367,7 @@ TimeIntBDFCoupled<dim, Number>::print_iterations() const
 {
   print_list_of_iterations(this->pcout,
                            {"Coupled system"},
-                           {static_cast<double>(std::get<1>(iterations.second)) /
+                           {static_cast<double>(iterations.second) /
                             std::max(1., static_cast<double>(iterations.first))});
 }
 
