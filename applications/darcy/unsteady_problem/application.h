@@ -64,7 +64,7 @@ public:
     Assert(component < dim * dim,
            dealii::ExcMessage("Trying to access a tensor coordinate out-of-bounds."));
 
-    return component % (dim + 1) == 0 ? 2.0 : 0.0;
+    return component % (dim + 1) == 0 ? 2.0e10 : 0.0;
   }
 };
 
@@ -306,11 +306,11 @@ private:
     IncNS::FormulationViscousTerm::LaplaceFormulation;
 
   double const inflow_velocity = 1.0e-3;
-  double const viscosity       = 1.0;
-  double const density         = 1.0e-1;
+  double const viscosity       = 1.81e-5;
+  double const density         = 1.2;
 
-  double const H = 1.0;
-  double const L = 1.0;
+  double const H = 3.0e-2;
+  double const L = 3.0e-2;
 
   double const start_time = 0.0;
   double const end_time   = 1.0;

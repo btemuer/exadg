@@ -743,12 +743,15 @@ OperatorCoupled<dim, Number>::initialize_operators()
     data.dof_index  = get_dof_index_velocity();
     data.quad_index = get_quad_index_velocity();
 
-    data.implement_block_diagonal_preconditioner_matrix_free =
-      param.linear_solver.preconditioner.velocity_block.block_jacobi.implement_matrix_free;
-    data.solver_block_diagonal         = Elementwise::Solver::CG;
-    data.preconditioner_block_diagonal = Elementwise::Preconditioner::InverseMassMatrix;
-    data.solver_data_block_diagonal =
-      param.linear_solver.preconditioner.velocity_block.block_jacobi.solver_data;
+    // Used only if the velocity block inverse is approximated by BlockJacobi
+    {
+      data.implement_block_diagonal_preconditioner_matrix_free =
+        param.linear_solver.preconditioner.velocity_block.block_jacobi.implement_matrix_free;
+      data.solver_block_diagonal         = Elementwise::Solver::CG;
+      data.preconditioner_block_diagonal = Elementwise::Preconditioner::InverseMassMatrix;
+      data.solver_data_block_diagonal =
+        param.linear_solver.preconditioner.velocity_block.block_jacobi.solver_data;
+    }
 
     data.permeability_kernel_data.porosity_field = field_functions->porosity_field;
     data.permeability_kernel_data.inverse_permeability_field =
@@ -773,10 +776,10 @@ OperatorCoupled<dim, Number>::initialize_operators()
   {
     IncNS::GradientOperatorData<dim> data;
 
-    data.dof_index_velocity   = get_dof_index_velocity();
-    data.dof_index_pressure   = get_dof_index_pressure();
-    data.quad_index           = get_quad_index_velocity();
-    data.bc                   = boundary_descriptor->pressure;
+    data.dof_index_velocity = get_dof_index_velocity();
+    data.dof_index_pressure = get_dof_index_pressure();
+    data.quad_index         = get_quad_index_velocity();
+    data.bc                 = boundary_descriptor->pressure;
 
     gradient_operator.initialize(*matrix_free, data);
   }
@@ -800,7 +803,8 @@ void
 OperatorCoupled<dim, Number>::distribute_dofs()
 {
   if(param.spatial_disc.method == SpatialDiscretizationMethod::L2)
-    fe_u = std::make_shared<dealii::FESystem<dim>>(dealii::FE_DGQ<dim>(param.spatial_disc.degree_u), dim);
+    fe_u = std::make_shared<dealii::FESystem<dim>>(dealii::FE_DGQ<dim>(param.spatial_disc.degree_u),
+                                                   dim);
   else
     AssertThrow(false, dealii::ExcMessage("FE not implemented."));
 
@@ -808,7 +812,8 @@ OperatorCoupled<dim, Number>::distribute_dofs()
   dof_handler_u.distribute_dofs(*fe_u);
   dof_handler_p.distribute_dofs(fe_p);
 
-  unsigned int const ndofs_per_cell_velocity = dealii::Utilities::pow(param.spatial_disc.degree_u + 1, dim) * dim;
+  unsigned int const ndofs_per_cell_velocity =
+    dealii::Utilities::pow(param.spatial_disc.degree_u + 1, dim) * dim;
 
 
   unsigned int const ndofs_per_cell_pressure =
@@ -822,7 +827,9 @@ OperatorCoupled<dim, Number>::distribute_dofs()
   print_parameter(pcout, "number of dofs (total)", dof_handler_u.n_dofs());
 
   pcout << "Pressure:" << std::endl;
-  print_parameter(pcout, "degree of 1D polynomials", param.get_degree_p(param.spatial_disc.degree_u));
+  print_parameter(pcout,
+                  "degree of 1D polynomials",
+                  param.get_degree_p(param.spatial_disc.degree_u));
   print_parameter(pcout, "number of dofs per cell", ndofs_per_cell_pressure);
   print_parameter(pcout, "number of dofs (total)", dof_handler_p.n_dofs());
 

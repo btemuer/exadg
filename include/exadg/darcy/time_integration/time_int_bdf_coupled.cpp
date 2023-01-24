@@ -132,11 +132,9 @@ TimeIntBDFCoupled<dim, Number>::calculate_time_step_size()
 {
   double time_step{};
 
-  if(param.temporal_disc.calculation_of_time_step_size ==
-     TimeStepCalculation::UserSpecified)
+  if(param.temporal_disc.calculation_of_time_step_size == TimeStepCalculation::UserSpecified)
   {
-    time_step =
-      calculate_const_time_step(param.temporal_disc.time_step_size, 0 /* no refinement*/);
+    time_step = calculate_const_time_step(param.temporal_disc.time_step_size, 0 /* no refinement*/);
 
     this->pcout << std::endl << "User specified time step size:" << std::endl << std::endl;
     print_parameter(this->pcout, "time step size", time_step);
@@ -307,11 +305,13 @@ TimeIntBDFCoupled<dim, Number>::do_timestep_solve()
 
     VectorType sum_alphai_ui(solution[0].block(0));
 
-    // calculate Sum_i (alpha_i/dt * u_i)
+    // calculate Sum_i (density * alpha_i/dt * u_i)
     sum_alphai_ui.equ(this->bdf.get_alpha(0) / this->get_time_step_size(), solution[0].block(0));
     for(unsigned int i = 1; i < solution.size(); ++i)
     {
-      sum_alphai_ui.add(this->bdf.get_alpha(i) / this->get_time_step_size(), solution[i].block(0));
+      sum_alphai_ui.add(param.physical_quantities.density * this->bdf.get_alpha(i) /
+                          this->get_time_step_size(),
+                        solution[i].block(0));
     }
 
     // apply mass operator to sum_alphai_ui and add to rhs vector
@@ -322,7 +322,8 @@ TimeIntBDFCoupled<dim, Number>::do_timestep_solve()
                           rhs_vector,
                           false,
                           this->get_next_time(),
-                          this->get_scaling_factor_time_derivative_term());
+                          param.physical_quantities.density *
+                            this->get_scaling_factor_time_derivative_term());
 
     iterations.first += 1;
     iterations.second += n_iter;
@@ -357,8 +358,8 @@ bool
 TimeIntBDFCoupled<dim, Number>::print_solver_info() const
 {
   return param.temporal_disc.solver_info_data.write(this->global_timer.wall_time(),
-                                                              this->time - this->start_time,
-                                                              this->time_step_number);
+                                                    this->time - this->start_time,
+                                                    this->time_step_number);
 }
 
 template<int dim, typename Number>
