@@ -34,11 +34,12 @@
 #include <exadg/darcy/spatial_discretization/operators/momentum_operator.h>
 #include <exadg/darcy/spatial_discretization/operators/permeability_operator.h>
 #include <exadg/darcy/user_interface/field_functions.h>
+#include <exadg/darcy/user_interface/parameters.h>
 #include <exadg/grid/grid.h>
+#include <exadg/grid/grid_motion_interface.h>
 #include <exadg/incompressible_navier_stokes/spatial_discretization/operators/gradient_operator.h>
 #include <exadg/incompressible_navier_stokes/spatial_discretization/operators/rhs_operator.h>
 #include <exadg/incompressible_navier_stokes/user_interface/boundary_descriptor.h>
-#include <exadg/darcy/user_interface/parameters.h>
 #include <exadg/matrix_free/matrix_free_data.h>
 #include <exadg/operators/mass_operator.h>
 #include <exadg/poisson/preconditioners/multigrid_preconditioner.h>
@@ -150,9 +151,10 @@ public:
    * Constructor
    */
   OperatorCoupled(std::shared_ptr<Grid<dim> const>                      grid,
+                  std::shared_ptr<GridMotionInterface<dim, Number>>     grid_motion,
                   std::shared_ptr<IncNS::BoundaryDescriptor<dim> const> boundary_descriptor,
                   std::shared_ptr<FieldFunctions<dim, Number> const>    field_functions,
-                  Parameters const &                             param,
+                  Parameters const &                                    param,
                   std::string                                           field,
                   MPI_Comm const &                                      mpi_comm);
 
@@ -258,6 +260,36 @@ public:
   void
   apply_block_preconditioner(BlockVectorType & dst, BlockVectorType const & src) const;
 
+  /*
+   * Moves the grid for ALE-type problems.
+   */
+  void
+  move_grid(double time) const;
+
+  /*
+   * Moves the grid and updates dependent data structures for ALE-type problems.
+   */
+  void
+  move_grid_and_update_dependent_data_structures(double time);
+
+  /*
+   * Fills a dof-vector with grid coordinates for ALE-type problems.
+   */
+  void
+  fill_grid_coordinates_vector(VectorType & vector) const;
+
+  /*
+   * Updates operators after grid has been moved.
+   */
+  virtual void
+  update_after_grid_motion();
+
+  /*
+   * Sets the grid velocity.
+   */
+  void
+  set_grid_velocity(VectorType const & u_grid_in);
+
 private:
   void
   initialize_solver();
@@ -303,6 +335,11 @@ private:
    * Grid
    */
   std::shared_ptr<Grid<dim> const> grid;
+
+  /*
+   * Grid motion for ALE formulations
+   */
+  std::shared_ptr<GridMotionInterface<dim, Number>> grid_motion;
 
   /*
    * User interface: Boundary conditions and field functions

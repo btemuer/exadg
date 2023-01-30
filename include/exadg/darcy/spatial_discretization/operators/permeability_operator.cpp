@@ -82,7 +82,7 @@ PermeabilityOperator<dim, Number>::do_cell_integral(CellIntegratorU & velocity) 
   for(unsigned int q = 0; q < velocity.n_q_points; ++q)
   {
     velocity.submit_value(
-      kernel.get_volume_flux(velocity.get_value(q), velocity.quadrature_point(q), this->time), q);
+      kernel.get_volume_flux(velocity.get_value(q), velocity.quadrature_point(q)), q);
   }
 }
 

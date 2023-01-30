@@ -51,7 +51,8 @@ TimeIntBDFCoupled<dim, Number>::TimeIntBDFCoupled(
     pde_operator(pde_operator),
     solution(this->order),
     iterations({0, 0}),
-    postprocessor(postprocessor)
+    postprocessor(postprocessor),
+    vec_grid_coordinates(this->order)
 {
 }
 
@@ -59,6 +60,16 @@ template<int dim, typename Number>
 void
 TimeIntBDFCoupled<dim, Number>::allocate_vectors()
 {
+  if (param.math_model.ale)
+  {
+    pde_operator->initialize_vector_velocity(grid_velocity);
+
+    pde_operator->initialize_vector_velocity(grid_coordinates_np);
+
+    for (unsigned int i = 0; i < vec_grid_coordinates.size(); ++i)
+      pde_operator->initialize_vector_velocity(vec_grid_coordinates[i]);
+  }
+
   // solution
   for(unsigned int i = 0; i < solution.size(); ++i)
     pde_operator->initialize_block_vector_velocity_pressure(solution[i]);
@@ -69,7 +80,42 @@ template<int dim, typename Number>
 void
 TimeIntBDFCoupled<dim, Number>::setup_derived()
 {
-  // nothing
+  if (param.math_model.ale)
+  {
+    // compute the grid coordinates at start time (and at previous times in case of
+    // start_with_low_order == false)
+
+    pde_operator->move_grid(this->get_time());
+    pde_operator->fill_grid_coordinates_vector(vec_grid_coordinates[0]);
+
+    if(this->start_with_low_order == false)
+    {
+      // compute grid coordinates at previous times (start with 1!)
+      for(unsigned int i = 1; i < this->order; ++i)
+      {
+        pde_operator->move_grid(this->get_previous_time(i));
+        pde_operator->fill_grid_coordinates_vector(vec_grid_coordinates[i]);
+      }
+    }
+  }
+}
+
+template<int dim, typename Number>
+void
+TimeIntBDFCoupled<dim, Number>::ale_update()
+{
+  // compute grid coordinates at the end of the current time step t_{n+1}
+  pde_operator->fill_grid_coordinates_vector(grid_coordinates_np);
+
+  // and update grid velocity using BDF time derivative
+  compute_bdf_time_derivative(grid_velocity,
+                              grid_coordinates_np,
+                              vec_grid_coordinates,
+                              this->bdf,
+                              this->get_time_step_size());
+
+  // and hand grid velocity over to spatial discretization
+  pde_operator->set_grid_velocity(grid_velocity);
 }
 
 template<int dim, typename Number>
@@ -108,6 +154,9 @@ template<int dim, typename Number>
 void
 TimeIntBDFCoupled<dim, Number>::initialize_current_solution()
 {
+  if(this->param.math_model.ale)
+    pde_operator->move_grid(this->get_time());
+
   pde_operator->prescribe_initial_conditions(solution[0].block(0),
                                              solution[0].block(1),
                                              this->get_time());
@@ -120,6 +169,9 @@ TimeIntBDFCoupled<dim, Number>::initialize_former_solutions()
   // note that the loop begins with i=1! (we could also start with i=0 but this is not necessary) ??
   for(unsigned int i = 1; i < solution.size(); ++i)
   {
+    if(this->param.math_model.ale)
+      pde_operator->move_grid(this->get_previous_time(i));
+
     pde_operator->prescribe_initial_conditions(solution[i].block(0),
                                                solution[i].block(1),
                                                this->get_previous_time(i));
@@ -349,6 +401,12 @@ template<int dim, typename Number>
 void
 TimeIntBDFCoupled<dim, Number>::prepare_vectors_for_next_timestep()
 {
+  if (param.math_model.ale)
+  {
+    push_back(vec_grid_coordinates);
+    vec_grid_coordinates[0].swap(grid_coordinates_np);
+  }
+
   push_back(solution);
   solution[0].swap(solution_np);
 }
@@ -378,6 +436,11 @@ TimeIntBDFCoupled<dim, Number>::postprocessing() const
 {
   dealii::Timer timer;
   timer.restart();
+
+  // To allow a computation of errors at start_time (= if time step number is 1 and if the
+  // simulation is not a restarted one), the mesh has to be at the correct position
+  if(this->param.math_model.ale && this->get_time_step_number() == 1 )
+    pde_operator->move_grid_and_update_dependent_data_structures(this->get_time());
 
   // pde_operator->distribute_constraint_u(const_cast<VectorType &>(get_velocity(0)));
 

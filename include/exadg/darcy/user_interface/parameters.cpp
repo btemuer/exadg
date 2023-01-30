@@ -37,6 +37,20 @@ Parameters::check() const
   AssertThrow(math_model.problem_type != ProblemType::Undefined,
               dealii::ExcMessage("parameter must be defined"));
 
+  // ALE
+  if(math_model.ale)
+  {
+    AssertThrow(spatial_disc.method == SpatialDiscretizationMethod::L2,
+                dealii::ExcMessage(
+                  "ALE is currently only implemented for L2 conforming function spaces."));
+
+    AssertThrow(
+      math_model.problem_type == ProblemType::Unsteady &&
+        temporal_disc.solver_type == TemporalSolverType::Unsteady,
+      dealii::ExcMessage(
+        "Both problem type and solver type have to be Unsteady when using ALE formulation."));
+  }
+
   // PHYSICAL QUANTITIES
   AssertThrow(physical_quantities.end_time > physical_quantities.start_time,
               dealii::ExcMessage("parameter end_time must be defined (properly)"));
@@ -120,6 +134,9 @@ Parameters::print(dealii::ConditionalOStream const & pcout, std::string const & 
   print_parameters_spatial_discretization(pcout);
 
   print_parameters_coupled_solver(pcout);
+
+  // NUMERICAL PARAMETERS
+  print_parameters_numerical(pcout);
 }
 
 void
@@ -130,6 +147,12 @@ Parameters::print_parameters_mathematical_model(dealii::ConditionalOStream const
   print_parameter(pcout, "Problem type", enum_to_string(math_model.problem_type));
 
   print_parameter(pcout, "Right-hand side", math_model.right_hand_side);
+
+  print_parameter(pcout, "Use ALE formulation", math_model.ale);
+  if(math_model.ale)
+  {
+    print_parameter(pcout, "Mesh movement type", enum_to_string(math_model.mesh_movement_type));
+  }
 }
 
 void
@@ -189,6 +212,8 @@ Parameters::print_parameters_spatial_discretization(dealii::ConditionalOStream c
     AssertThrow(false, dealii::ExcNotImplemented());
 
   print_parameter(pcout, "Polynomial degree pressure", enum_to_string(spatial_disc.degree_p));
+
+  print_parameter(pcout, "Ale formulation (with poroelasticity coupling)", math_model.ale);
 
   print_parameter(pcout,
                   "Adjust pressure level (if undefined)",

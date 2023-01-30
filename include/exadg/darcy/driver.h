@@ -27,6 +27,7 @@
 #include <exadg/darcy/time_integration/driver_steady_problems.h>
 #include <exadg/darcy/time_integration/time_int_bdf_coupled.h>
 #include <exadg/darcy/user_interface/application_base.h>
+#include <exadg/grid/grid_motion_function.h>
 #include <exadg/matrix_free/matrix_free_data.h>
 #include <exadg/utilities/print_general_infos.h>
 
@@ -71,17 +72,19 @@ template<int dim, typename Number>
 class Driver
 {
 public:
-  Driver(MPI_Comm const &                              mpi_comm,
-         std::shared_ptr<ApplicationBase<dim, Number>> application);
+  Driver(MPI_Comm const & mpi_comm, std::shared_ptr<ApplicationBase<dim, Number>> application);
 
   void
   setup();
 
   void
+  ale_update() const;
+
+  void
   solve() const;
 
   void
-  print_performance_results(double const total_time) const;
+  print_performance_results(double total_time) const;
 
 private:
   // MPI communicator
@@ -103,6 +106,9 @@ private:
    * Spatial discretization
    */
   std::shared_ptr<OperatorCoupled<dim, Number>> pde_operator;
+
+  // moving mapping (ALE)
+  std::shared_ptr<GridMotionBase<dim, Number>> grid_motion;
 
   /*
    * Postprocessor

@@ -115,7 +115,16 @@ public:
     return field_functions;
   }
 
+  // Analytical mesh motion
+  virtual std::shared_ptr<dealii::Function<dim>>
+  create_mesh_movement_function()
+  {
+    std::shared_ptr<dealii::Function<dim>> mesh_motion =
+      std::make_shared<dealii::Functions::ZeroFunction<dim>>(dim);
 
+    return mesh_motion;
+  }
+  
 protected:
   virtual void
   parse_parameters()

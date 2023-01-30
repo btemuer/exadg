@@ -20,6 +20,7 @@
  */
 
 #include <exadg/darcy/driver.h>
+#include <exadg/grid/get_dynamic_mapping.h>
 #include <exadg/utilities/print_solver_results.h>
 
 namespace ExaDG
@@ -47,16 +48,33 @@ Driver<dim, Number>::setup()
 
   application->setup();
 
-  // no mesh movement -> no ALE setup
+  // moving mesh (ALE formulation)
+  if(application->get_parameters().math_model.ale)
+  {
+    if(application->get_parameters().math_model.mesh_movement_type == MeshMovementType::Function)
+    {
+      std::shared_ptr<dealii::Function<dim>> mesh_motion =
+        application->create_mesh_movement_function();
+
+      grid_motion = std::make_shared<GridMotionFunction<dim, Number>>(
+        application->get_grid()->mapping,
+        application->get_parameters().spatial_disc.grid_data.mapping_degree,
+        *application->get_grid()->triangulation,
+        mesh_motion,
+        application->get_parameters().physical_quantities.start_time);
+    }
+    else
+      AssertThrow(false, dealii::ExcNotImplemented());
+  }
 
   pde_operator =
     std::make_shared<Darcy::OperatorCoupled<dim, Number>>(application->get_grid(),
+                                                          grid_motion,
                                                           application->get_boundary_descriptor(),
                                                           application->get_field_functions(),
                                                           application->get_parameters(),
                                                           "fluid",
                                                           mpi_comm);
-
 
   // Initialize matrix-free evaluation
   matrix_free_data = std::make_shared<MatrixFreeData<dim, Number>>();
@@ -70,8 +88,10 @@ Driver<dim, Number>::setup()
                                         matrix_free_data->data);
   }
 
-  // no dynamic mapping - (no moving mesh, no ALE)
-  matrix_free->reinit(*(application->get_grid()->mapping),
+  std::shared_ptr<dealii::Mapping<dim> const> mapping =
+    get_dynamic_mapping<dim, Number>(application->get_grid(), grid_motion);
+
+  matrix_free->reinit(*mapping,
                       matrix_free_data->get_dof_handler_vector(),
                       matrix_free_data->get_constraint_vector(),
                       matrix_free_data->get_quadrature_vector(),
@@ -85,8 +105,7 @@ Driver<dim, Number>::setup()
   postprocessor->setup(*pde_operator);
 
   // setup time integrator before calling setup_solvers()
-  if(application->get_parameters().temporal_disc.solver_type ==
-     TemporalSolverType::Unsteady)
+  if(application->get_parameters().temporal_disc.solver_type == TemporalSolverType::Unsteady)
   {
     time_integrator = std::make_shared<TimeIntBDFCoupled<dim, Number>>(
       pde_operator, application->get_parameters(), mpi_comm, postprocessor);
@@ -95,8 +114,7 @@ Driver<dim, Number>::setup()
 
     pde_operator->setup_solvers(time_integrator->get_scaling_factor_time_derivative_term());
   }
-  else if(application->get_parameters().temporal_disc.solver_type ==
-          TemporalSolverType::Steady)
+  else if(application->get_parameters().temporal_disc.solver_type == TemporalSolverType::Steady)
   {
     // initialize driver for steady state problem that depends on pde_operator
     driver_steady = std::make_shared<DriverSteadyProblems<dim, Number>>(
@@ -114,16 +132,60 @@ Driver<dim, Number>::setup()
 
 template<int dim, typename Number>
 void
+Driver<dim, Number>::ale_update() const
+{
+  // move the mesh and update dependent data structures
+  dealii::Timer timer;
+  timer.restart();
+
+  dealii::Timer sub_timer;
+
+  sub_timer.restart();
+  grid_motion->update(time_integrator->get_next_time(), false);
+  timer_tree.insert({"Darcy flow", "ALE", "Reinit mapping"}, sub_timer.wall_time());
+
+  sub_timer.restart();
+  std::shared_ptr<dealii::Mapping<dim> const> mapping =
+    get_dynamic_mapping<dim, Number>(application->get_grid(), grid_motion);
+  matrix_free->update_mapping(*mapping);
+  timer_tree.insert({"Darcy flow", "ALE", "Update matrix-free"}, sub_timer.wall_time());
+
+  sub_timer.restart();
+  pde_operator->update_after_grid_motion();
+  timer_tree.insert({"Darcy flow", "ALE", "Update operator"}, sub_timer.wall_time());
+
+  sub_timer.restart();
+  time_integrator->ale_update();
+  timer_tree.insert({"Darcy flow", "ALE", "Update time integrator"}, sub_timer.wall_time());
+
+  timer_tree.insert({"Darcy flow", "ALE"}, timer.wall_time());
+}
+
+template<int dim, typename Number>
+void
 Driver<dim, Number>::solve() const
 {
   if(application->get_parameters().math_model.problem_type == ProblemType::Unsteady)
   {
-    time_integrator->timeloop();
+    if(application->get_parameters().math_model.ale == true)
+    {
+      while(not time_integrator->finished())
+      {
+        time_integrator->advance_one_timestep_pre_solve(true);
+
+        ale_update();
+
+        time_integrator->advance_one_timestep_solve();
+
+        time_integrator->advance_one_timestep_post_solve();
+      }
+    }
+    else
+      time_integrator->timeloop();
   }
   else if(application->get_parameters().math_model.problem_type == ProblemType::Steady)
   {
-    if(application->get_parameters().temporal_disc.solver_type ==
-       TemporalSolverType::Steady)
+    if(application->get_parameters().temporal_disc.solver_type == TemporalSolverType::Steady)
       driver_steady->solve();
     else
       AssertThrow(false, dealii::ExcNotImplemented());

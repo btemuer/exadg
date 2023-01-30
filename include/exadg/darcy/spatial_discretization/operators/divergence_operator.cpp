@@ -148,7 +148,7 @@ DivergenceOperator<dim, Number>::do_boundary_integral(
     vector const value_p = std::invoke([&]() {
       if(data.use_boundary_data == true)
         return calculate_exterior_value(
-          value_m, q, velocity, operator_type, boundary_type, boundary_id, data.bc, time);
+          value_m, q, velocity, operator_type, boundary_type, boundary_id, data.bc, this->time);
       else
         return value_m;
     });

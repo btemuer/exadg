@@ -49,6 +49,15 @@ enum class ProblemType
 std::string
 enum_to_string(ProblemType enum_type);
 
+enum class MeshMovementType
+{
+  Function,
+  Elasticity
+};
+
+std::string
+enum_to_string(MeshMovementType const enum_type);
+
 
 /* ************************************************************************************ */
 /*                                                                                      */

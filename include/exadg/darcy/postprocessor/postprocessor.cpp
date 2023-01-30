@@ -57,7 +57,8 @@ PostProcessor<dim, Number>::do_postprocessing(VectorType const &     velocity,
    */
   if(output_generator.time_control.needs_evaluation(time, time_step_number))
   {
-    output_generator.evaluate(velocity, pressure, {}, time, false);
+    output_generator.evaluate(
+      velocity, pressure, {}, time, Utilities::is_unsteady_timestep(time_step_number));
   }
 }
 

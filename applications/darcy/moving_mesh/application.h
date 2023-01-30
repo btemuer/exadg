@@ -19,97 +19,42 @@
  *  ______________________________________________________________________
  */
 
-#ifndef APPLICATIONS_DARCY_TEST_CASES_STEADY_PROBLEM_H_
-#define APPLICATIONS_DARCY_TEST_CASES_STEADY_PROBLEM_H_
+#ifndef APPLICATIONS_DARCY_TEST_CASES_MESH_MOVEMENT_H_
+#define APPLICATIONS_DARCY_TEST_CASES_MESH_MOVEMENT_H_
+
+#include <exadg/grid/mesh_movement_functions.h>
 
 namespace ExaDG
 {
 namespace Darcy
 {
-enum class BoundaryCondition
-{
-  VelocityInflow,
-};
-
-inline void
-string_to_enum(BoundaryCondition & enum_type, std::string const & string_type)
-{
-  // clang-format off
-  if     (string_type == "VelocityInflow") enum_type = BoundaryCondition::VelocityInflow;
-  else AssertThrow(false, dealii::ExcMessage("Unknown BC type. Not implemented."));
-  // clang-format on
-}
-
 template<int dim>
-class[[maybe_unused]] AnalyticalSolutionVelocity : public dealii::Function<dim>
+class InflowVelocityBC : public dealii::Function<dim>
 {
 public:
-  explicit AnalyticalSolutionVelocity(double const inflow_velocity)
-    : dealii::Function<dim>(dim, 0.0), inflow_velocity(inflow_velocity)
-  {
-  }
-
-  double value(dealii::Point<dim> const & p, unsigned int const component = 0) const
-  {
-    double result = 0.0;
-
-    if(component == 0)
-      result = inflow_velocity;
-
-    return result;
-  }
-
-private:
-  double const inflow_velocity;
-};
-
-template<int dim>
-class[[maybe_unused]] AnalyticalSolutionPressure : public dealii::Function<dim>
-{
-public:
-  AnalyticalSolutionPressure(double const viscosity,
-                             double const permeability,
-                             double const inflow_velocity,
-                             double const L)
-    : dealii::Function<dim>(1 /*n_components*/, 0.0),
-      viscosity(viscosity),
-      permeability(permeability),
-      inflow_velocity(inflow_velocity),
-      L(L)
-  {
-  }
-
-  double value(dealii::Point<dim> const & p, unsigned int const /*component*/) const
-  {
-    // pressure decreases linearly in flow direction
-    double pressure_gradient = -viscosity * inflow_velocity / permeability;
-
-    double const result = (p[0] - L) * pressure_gradient;
-
-    return result;
-  }
-
-private:
-  double const viscosity, permeability, inflow_velocity, L;
-};
-
-template<int dim>
-class DirichletBoundaryVelocity : public dealii::Function<dim>
-{
-public:
-  explicit DirichletBoundaryVelocity(double const inflow_velocity)
-    : dealii::Function<dim>(dim, 0.0), inflow_velocity(inflow_velocity)
+  InflowVelocityBC(double const inflow_velocity, double const end_time)
+    : dealii::Function<dim>(dim, 0.0), inflow_velocity(inflow_velocity), end_time(end_time)
   {
   }
 
   double
   value(dealii::Point<dim> const & /*p*/, unsigned int const component = 0) const
   {
-    return (component == 0) ? inflow_velocity : 0.0;
+    if(component == 0)
+    {
+      double const t = this->get_time();
+
+      return inflow_velocity *
+             (0.5 * std::cos(dealii::numbers::PI * (1.0 + t / (end_time / 2.0))) + 0.5);
+      // return inflow_velocity * t / end_time;
+    }
+
+    return 0.0;
   }
 
 private:
   double const inflow_velocity;
+  double const end_time;
 };
 
 template<int dim>
@@ -122,7 +67,7 @@ public:
     Assert(component < dim * dim,
            dealii::ExcMessage("Trying to access a tensor coordinate out-of-bounds."));
 
-    return component % (dim + 1) == 0 ? 2.0 : 0.0;
+    return component % (dim + 1) == 0 ? 2.0e10 : 0.0;
   }
 };
 
@@ -154,10 +99,6 @@ public:
 
     // clang-format off
     prm.enter_subsection("Application");
-      prm.add_parameter("BoundaryConditionType",
-                        boundary_condition_string,
-                        "Type of boundary condition.",
-                        dealii::Patterns::Selection("VelocityInflow|PressureOutflow"));
       prm.add_parameter("ApplySymmetryBC",
                         apply_symmetry_bc,
                         "Apply symmetry boundary condition.",
@@ -171,15 +112,16 @@ private:
   parse_parameters() final
   {
     ApplicationBase<dim, Number>::parse_parameters();
-
-    string_to_enum(boundary_condition, boundary_condition_string);
   }
   void
   set_parameters() final
   {
     // MATHEMATICAL MODEL
-    this->param.math_model.problem_type    = ProblemType::Steady;
+    this->param.math_model.problem_type    = ProblemType::Unsteady;
     this->param.math_model.right_hand_side = false;
+
+    this->param.math_model.ale                = true;
+    this->param.math_model.mesh_movement_type = MeshMovementType::Function;
 
     // PHYSICAL QUANTITIES
     this->param.physical_quantities.start_time = start_time;
@@ -188,61 +130,89 @@ private:
     this->param.physical_quantities.density    = density;
 
     // TEMPORAL DISCRETIZATION
-    this->param.temporal_disc.solver_type = TemporalSolverType::Steady;
+    this->param.temporal_disc.solver_type           = TemporalSolverType::Unsteady;
+    this->param.temporal_disc.method                = TemporalDiscretizationMethod::BDFCoupled;
+    this->param.temporal_disc.order_time_integrator = 3;
+    this->param.temporal_disc.start_with_low_order  = true;
+    this->param.temporal_disc.calculation_of_time_step_size = TimeStepCalculation::UserSpecified;
+    this->param.temporal_disc.time_step_size                = 1.0e-1;
+
+    // output of solver information
+    this->param.temporal_disc.solver_info_data.interval_time_steps = 1;
 
     // SPATIAL DISCRETIZATION
-    this->param.spatial_disc.method = SpatialDiscretizationMethod::L2;
-
-    this->param.spatial_disc.degree_u = 3;
+    this->param.spatial_disc.degree_u = 4;
     this->param.spatial_disc.degree_p = DegreePressure::MixedOrder;
 
+    this->param.spatial_disc.method                       = SpatialDiscretizationMethod::L2;
     this->param.spatial_disc.grid_data.triangulation_type = TriangulationType::Distributed;
     this->param.spatial_disc.grid_data.n_refine_global    = 3;
     this->param.spatial_disc.grid_data.mapping_degree     = this->param.spatial_disc.degree_u;
 
-    // COUPLED NAVIER-STOKES SOLVER
+
+    // COUPLED DARCY SOLVER
 
     // linear solver
-    this->param.linear_solver.method = LinearSolverMethod::GMRES;
-    this->param.linear_solver.data   = SolverData(10000, 1.e-12, 1.e-8);
+    this->param.linear_solver.method = LinearSolverMethod::FGMRES;
+    this->param.linear_solver.data   = SolverData(1e4, 1.e-10, 1.e-8);
+
+    this->param.linear_solver.preconditioner.update                  = true;
+    this->param.linear_solver.preconditioner.update_every_time_steps = 1;
 
     // preconditioning linear solver
     this->param.linear_solver.preconditioner.type = PreconditionerCoupled::BlockTriangular;
 
     // preconditioner velocity/momentum block
     this->param.linear_solver.preconditioner.velocity_block.type =
-      VelocityBlockPreconditioner::InverseMomentumMatrix;
+      VelocityBlockPreconditioner::BlockJacobi;
+    this->param.linear_solver.preconditioner.velocity_block.block_jacobi.implement_matrix_free =
+      true;
 
     // preconditioner Schur-complement block
     this->param.linear_solver.preconditioner.schur_complement.type =
       SchurComplementPreconditioner::LaplaceOperator;
+
+    // NUMERICAL PARAMETERS
+    this->param.numerical.use_cell_based_face_loops = true;
   }
 
   void
   create_grid() final
   {
-    double const              y_upper = H / 2;
-    double const              y_lower = -H / 2;
-    dealii::Point<dim>        point1(0.0, y_lower), point2(L, y_upper);
-    std::vector<unsigned int> repetitions({1, 1});
-    dealii::GridGenerator::subdivided_hyper_rectangle(*this->grid->triangulation,
-                                                      repetitions,
-                                                      point1,
-                                                      point2);
+    dealii::GridGenerator::hyper_cube(*this->grid->triangulation, -0.5 * L, +0.5 * L);
 
     // set boundary indicator
     for(auto cell : this->grid->triangulation->cell_iterators())
     {
       for(auto const & face : cell->face_indices())
       {
-        if((std::fabs(cell->face(face)->center()(0) - 0.0) < 1e-12))
+        if((std::fabs(cell->face(face)->center()(0) - -0.5 * L) < 1e-12))
           cell->face(face)->set_boundary_id(1);
-        if((std::fabs(cell->face(face)->center()(0) - L) < 1e-12))
+        if((std::fabs(cell->face(face)->center()(0) - +0.5 * L) < 1e-12))
           cell->face(face)->set_boundary_id(2);
       }
     }
 
     this->grid->triangulation->refine_global(this->param.spatial_disc.grid_data.n_refine_global);
+  }
+  std::shared_ptr<dealii::Function<dim>>
+  create_mesh_movement_function() final
+  {
+    std::shared_ptr<dealii::Function<dim>> mesh_motion;
+
+    MeshMovementData<dim> data;
+    data.temporal                       = MeshMovementAdvanceInTime::Sin;
+    data.shape                          = MeshMovementShape::Sin;
+    data.dimensions[0]                  = std::abs(L);
+    data.dimensions[1]                  = std::abs(L);
+    data.amplitude                      = 0.01 * (L);
+    data.period                         = (end_time - start_time) / 1.0;
+    data.t_start                        = start_time;
+    data.t_end                          = end_time;
+    data.spatial_number_of_oscillations = 1.0;
+    mesh_motion.reset(new CubeMeshMovementFunctions<dim>(data));
+
+    return mesh_motion;
   }
 
   void
@@ -251,15 +221,12 @@ private:
     using pair =
       typename std::pair<dealii::types::boundary_id, std::shared_ptr<dealii::Function<dim>>>;
 
-    AssertThrow(boundary_condition == BoundaryCondition::VelocityInflow,
-                dealii::ExcNotImplemented());
-
     // fill boundary descriptor velocity
     {
       // inflow
       {
         this->boundary_descriptor->velocity->dirichlet_bc.insert(
-          pair(1, new DirichletBoundaryVelocity<dim>(this->inflow_velocity)));
+          pair(1, new InflowVelocityBC<dim>(this->inflow_velocity, end_time)));
       }
       // outflow
       {
@@ -333,8 +300,12 @@ private:
 
     // write output for visualization of results
     pp_data.output_data.time_control_data.is_active = this->output_parameters.write;
-    pp_data.output_data.directory                   = this->output_parameters.directory + "vtu/";
-    pp_data.output_data.filename                    = this->output_parameters.filename;
+
+    pp_data.output_data.time_control_data.start_time               = start_time;
+    pp_data.output_data.time_control_data.trigger_every_time_steps = 1;
+
+    pp_data.output_data.directory = this->output_parameters.directory + "vtu/";
+    pp_data.output_data.filename  = this->output_parameters.filename;
 
     pp_data.output_data.write_divergence = false;
 
@@ -346,9 +317,6 @@ private:
 
     return pp;
   }
-
-  std::string       boundary_condition_string = "VelocityInflow";
-  BoundaryCondition boundary_condition        = BoundaryCondition::VelocityInflow;
 
   bool apply_symmetry_bc = true;
 
@@ -364,10 +332,9 @@ private:
 };
 
 } // namespace Darcy
-
 } // namespace ExaDG
 
 #include <exadg/darcy/user_interface/implement_get_application.h>
 
 
-#endif // APPLICATIONS_DARCY_TEST_CASES_STEADY_PROBLEM_H_
+#endif // APPLICATIONS_DARCY_TEST_CASES_MESH_MOVEMENT_H_

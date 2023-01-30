@@ -52,7 +52,27 @@ enum_to_string(ProblemType const enum_type)
       string_type = "Unsteady";
       break;
     default:
-      AssertThrow(false, dealii::ExcMessage("Not implemented."));
+      AssertThrow(false, dealii::ExcNotImplemented());
+  }
+
+  return string_type;
+}
+
+std::string
+enum_to_string(MeshMovementType const enum_type)
+{
+  std::string string_type;
+
+  switch(enum_type)
+  {
+    case MeshMovementType::Function:
+      string_type = "Function";
+      break;
+    case MeshMovementType::Elasticity:
+      string_type = "Elasticity";
+      break;
+    default:
+      AssertThrow(false, dealii::ExcNotImplemented());
   }
 
   return string_type;

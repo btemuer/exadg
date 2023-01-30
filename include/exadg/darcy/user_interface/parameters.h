@@ -45,6 +45,10 @@ struct MathematicalModelParameters
   ProblemType problem_type{ProblemType::Undefined};
 
   bool right_hand_side{false};
+
+  bool ale{false};
+
+  MeshMovementType mesh_movement_type;
 };
 
 struct PhysicalQuantities

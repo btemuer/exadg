@@ -88,7 +88,7 @@ public:
    */
   inline DEAL_II_ALWAYS_INLINE //
     vector
-    get_volume_flux(vector const & velocity_value, point const & q_point, double const time) const
+    get_volume_flux(vector const & velocity_value, point const & q_point) const
   {
     AssertThrow(data.viscosity > 0.0, dealii::ExcMessage("Problem with the viscosity."));
     AssertThrow(data.porosity_field, dealii::ExcMessage("Porosity field function not set."));
@@ -97,11 +97,11 @@ public:
 
     scalar const viscosity = dealii::make_vectorized_array<Number>(data.viscosity);
     scalar const porosity =
-      FunctionEvaluator<0, dim, Number>::value(data.porosity_field, q_point, time);
+      FunctionEvaluator<0, dim, Number>::value(data.porosity_field, q_point, 0.0);
     dyadic const inverse_permeability =
       FunctionEvaluator<2, dim, Number>::value_symmetric(data.inverse_permeability_field,
                                                          q_point,
-                                                         time);
+                                                         0.0);
 
     return viscosity * porosity * inverse_permeability * velocity_value;
   }
@@ -159,8 +159,6 @@ private:
             Range const &                           cell_range) const;
 
   dealii::MatrixFree<dim, Number> const * matrix_free;
-
-  mutable double time{};
 
   Operators::PermeabilityKernel<dim, Number> kernel;
 

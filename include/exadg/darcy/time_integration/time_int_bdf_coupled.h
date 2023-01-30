@@ -73,6 +73,9 @@ public:
   double
   recalculate_time_step_size() const final;
 
+  void
+  ale_update();
+
   VectorType const &
   get_velocity() const;
 
@@ -153,6 +156,11 @@ private:
 
   // postprocessor
   std::shared_ptr<PostProcessorInterface<Number>> postprocessor;
+
+  // ALE
+  VectorType              grid_velocity;
+  std::vector<VectorType> vec_grid_coordinates;
+  VectorType              grid_coordinates_np;
 };
 
 } // namespace Darcy

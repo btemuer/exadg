@@ -24,6 +24,7 @@
 
 // ExaDG
 #include <exadg/darcy/spatial_discretization/operator_coupled.h>
+#include <exadg/grid/get_dynamic_mapping.h>
 #include <exadg/poisson/spatial_discretization/laplace_operator.h>
 #include <exadg/solvers_and_preconditioners/preconditioners/block_jacobi_preconditioner.h>
 #include <exadg/solvers_and_preconditioners/preconditioners/inverse_mass_preconditioner.h>
@@ -38,6 +39,7 @@ namespace Darcy
 template<int dim, typename Number>
 OperatorCoupled<dim, Number>::OperatorCoupled(
   std::shared_ptr<Grid<dim> const>                      grid,
+  std::shared_ptr<GridMotionInterface<dim, Number>>     grid_motion,
   std::shared_ptr<IncNS::BoundaryDescriptor<dim> const> boundary_descriptor,
   std::shared_ptr<FieldFunctions<dim, Number> const>    field_functions,
   Parameters const &                                    param,
@@ -45,6 +47,7 @@ OperatorCoupled<dim, Number>::OperatorCoupled(
   MPI_Comm const &                                      mpi_comm)
   : dealii::Subscriptor(),
     grid(grid),
+    grid_motion(grid_motion),
     boundary_descriptor(boundary_descriptor),
     field_functions(field_functions),
     param(param),
@@ -265,6 +268,9 @@ OperatorCoupled<dim, Number>::rhs(OperatorCoupled::BlockVectorType & dst, double
 
     if(param.math_model.right_hand_side)
       rhs_operator.evaluate_add(dst.block(0), time);
+
+    if (param.math_model.ale)
+      momentum_operator.rhs_add(dst.block(0), time);
   }
 
   // Pressure block
@@ -328,7 +334,7 @@ template<int dim, typename Number>
 std::shared_ptr<dealii::Mapping<dim> const>
 OperatorCoupled<dim, Number>::get_mapping() const
 {
-  return grid->get_mapping();
+  return get_dynamic_mapping<dim, Number>(grid, grid_motion);
 }
 
 template<int dim, typename Number>
@@ -403,7 +409,21 @@ OperatorCoupled<dim, Number>::update_block_preconditioner()
   preconditioner_velocity_block->update();
 
   // Pressure / Schur-complement block
-  // Do nothing (no ALE)...
+  if(param.math_model.ale)
+  {
+    auto const type = param.linear_solver.preconditioner.schur_complement.type;
+
+    // Laplace Operator
+    if(type == SchurComplementPreconditioner::LaplaceOperator)
+    {
+      if(param.linear_solver.preconditioner.schur_complement.laplace_operator.exact_inversion)
+        AssertThrow(false, dealii::ExcNotImplemented());
+
+      preconditioner_pressure_block->update();
+    }
+    else
+      AssertThrow(type == SchurComplementPreconditioner::None, dealii::ExcNotImplemented());
+  }
 }
 
 template<int dim, typename Number>
@@ -710,6 +730,43 @@ OperatorCoupled<dim, Number>::apply_preconditioner_pressure_block(
 
 template<int dim, typename Number>
 void
+OperatorCoupled<dim, Number>::move_grid(double const time) const
+{
+  grid_motion->update(time, false);
+}
+
+template<int dim, typename Number>
+void
+OperatorCoupled<dim, Number>::move_grid_and_update_dependent_data_structures(double const time)
+{
+  grid_motion->update(time, false);
+  matrix_free->update_mapping(*get_mapping());
+  update_after_grid_motion();
+}
+
+template<int dim, typename Number>
+void
+OperatorCoupled<dim, Number>::fill_grid_coordinates_vector(VectorType & vector) const
+{
+  grid_motion->fill_grid_coordinates_vector(vector, get_dof_handler_u());
+}
+
+template<int dim, typename Number>
+void
+OperatorCoupled<dim, Number>::update_after_grid_motion()
+{
+  // nothing
+}
+
+template<int dim, typename Number>
+void
+OperatorCoupled<dim, Number>::set_grid_velocity(VectorType const & grid_velocity)
+{
+  momentum_operator.set_grid_velocity(grid_velocity);
+}
+
+template<int dim, typename Number>
+void
 OperatorCoupled<dim, Number>::initialize_operators()
 {
   // Mass operator
@@ -739,6 +796,7 @@ OperatorCoupled<dim, Number>::initialize_operators()
     MomentumOperatorData<dim> data;
 
     data.unsteady_problem = param.math_model.problem_type == ProblemType::Unsteady;
+    data.ale              = param.math_model.ale;
 
     data.dof_index  = get_dof_index_velocity();
     data.quad_index = get_quad_index_velocity();
@@ -757,6 +815,9 @@ OperatorCoupled<dim, Number>::initialize_operators()
     data.permeability_kernel_data.inverse_permeability_field =
       field_functions->inverse_permeability_field;
     data.permeability_kernel_data.viscosity = param.physical_quantities.viscosity;
+
+    data.ale_momentum_kernel_data.upwind_factor = 0.5;
+    data.bc                                     = boundary_descriptor->velocity;
 
     momentum_operator.initialize(*matrix_free, constraint_u, data);
   }
