@@ -60,13 +60,13 @@ template<int dim, typename Number>
 void
 TimeIntBDFCoupled<dim, Number>::allocate_vectors()
 {
-  if (param.math_model.ale)
+  if(param.math_model.ale)
   {
     pde_operator->initialize_vector_velocity(grid_velocity);
 
     pde_operator->initialize_vector_velocity(grid_coordinates_np);
 
-    for (unsigned int i = 0; i < vec_grid_coordinates.size(); ++i)
+    for(unsigned int i = 0; i < vec_grid_coordinates.size(); ++i)
       pde_operator->initialize_vector_velocity(vec_grid_coordinates[i]);
   }
 
@@ -80,7 +80,7 @@ template<int dim, typename Number>
 void
 TimeIntBDFCoupled<dim, Number>::setup_derived()
 {
-  if (param.math_model.ale)
+  if(param.math_model.ale)
   {
     // compute the grid coordinates at start time (and at previous times in case of
     // start_with_low_order == false)
@@ -361,9 +361,7 @@ TimeIntBDFCoupled<dim, Number>::do_timestep_solve()
     sum_alphai_ui.equ(this->bdf.get_alpha(0) / this->get_time_step_size(), solution[0].block(0));
     for(unsigned int i = 1; i < solution.size(); ++i)
     {
-      sum_alphai_ui.add(param.physical_quantities.density * this->bdf.get_alpha(i) /
-                          this->get_time_step_size(),
-                        solution[i].block(0));
+      sum_alphai_ui.add(this->bdf.get_alpha(i) / this->get_time_step_size(), solution[i].block(0));
     }
 
     // apply mass operator to sum_alphai_ui and add to rhs vector
@@ -374,8 +372,7 @@ TimeIntBDFCoupled<dim, Number>::do_timestep_solve()
                           rhs_vector,
                           false,
                           this->get_next_time(),
-                          param.physical_quantities.density *
-                            this->get_scaling_factor_time_derivative_term());
+                          this->get_scaling_factor_time_derivative_term());
 
     iterations.first += 1;
     iterations.second += n_iter;
@@ -401,7 +398,7 @@ template<int dim, typename Number>
 void
 TimeIntBDFCoupled<dim, Number>::prepare_vectors_for_next_timestep()
 {
-  if (param.math_model.ale)
+  if(param.math_model.ale)
   {
     push_back(vec_grid_coordinates);
     vec_grid_coordinates[0].swap(grid_coordinates_np);
@@ -439,7 +436,7 @@ TimeIntBDFCoupled<dim, Number>::postprocessing() const
 
   // To allow a computation of errors at start_time (= if time step number is 1 and if the
   // simulation is not a restarted one), the mesh has to be at the correct position
-  if(this->param.math_model.ale && this->get_time_step_number() == 1 )
+  if(this->param.math_model.ale && this->get_time_step_number() == 1)
     pde_operator->move_grid_and_update_dependent_data_structures(this->get_time());
 
   // pde_operator->distribute_constraint_u(const_cast<VectorType &>(get_velocity(0)));
