@@ -778,19 +778,6 @@ OperatorCoupled<dim, Number>::initialize_operators()
     mass_operator.initialize(*matrix_free, constraint_u, data);
   }
 
-  // Permeability operator
-  {
-    PermeabilityOperatorData<dim> data;
-
-    data.dof_index_velocity                     = get_dof_index_velocity();
-    data.quad_index_velocity                    = get_quad_index_velocity();
-    data.kernel_data.porosity_field             = field_functions->porosity_field;
-    data.kernel_data.inverse_permeability_field = field_functions->inverse_permeability_field;
-    data.kernel_data.viscosity                  = param.physical_quantities.viscosity;
-
-    permeability_operator.initialize(*matrix_free, data);
-  }
-
   // Momentum operator (mass + permeability)
   {
     MomentumOperatorData<dim> data;

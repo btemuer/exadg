@@ -192,7 +192,6 @@ SET(TARGET_SRC
      # darcy
      include/exadg/darcy/postprocessor/postprocessor.cpp
      include/exadg/darcy/spatial_discretization/operator_coupled.cpp
-     include/exadg/darcy/spatial_discretization/operators/permeability_operator.cpp
      include/exadg/darcy/spatial_discretization/operators/divergence_operator.cpp
      include/exadg/darcy/spatial_discretization/operators/momentum_operator.cpp
      include/exadg/darcy/time_integration/driver_steady_problems.cpp

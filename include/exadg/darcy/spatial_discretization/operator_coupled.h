@@ -383,7 +383,6 @@ private:
   /*
    * Basic operators
    */
-  PermeabilityOperator<dim, Number>    permeability_operator;
   DivergenceOperator<dim, Number>      divergence_operator;
   MassOperator<dim, dim, Number>       mass_operator;
   IncNS::RHSOperator<dim, Number>      rhs_operator;

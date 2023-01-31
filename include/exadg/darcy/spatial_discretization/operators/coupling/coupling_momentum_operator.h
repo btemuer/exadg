@@ -22,9 +22,9 @@
 #ifndef EXADG_DARCY_ALE_MOMENTUM_OPERATOR_H
 #define EXADG_DARCY_ALE_MOMENTUM_OPERATOR_H
 
-#include <exadg/darcy/user_interface/parameters.h>
-#include <exadg/matrix_free/integrators.h>
-#include <exadg/operators/operator_base.h>
+#include "exadg/darcy/user_interface/parameters.h"
+#include "exadg/matrix_free/integrators.h"
+#include "exadg/operators/operator_base.h"
 
 namespace ExaDG
 {

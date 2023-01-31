@@ -111,60 +111,6 @@ private:
 };
 } // namespace Operators
 
-template<int dim>
-struct PermeabilityOperatorData
-{
-  unsigned int dof_index_velocity{};
-  unsigned int quad_index_velocity{};
-
-  Operators::PermeabilityKernelData<dim> kernel_data;
-};
-
-template<int dim, typename Number>
-class PermeabilityOperator
-{
-private:
-  using This = PermeabilityOperator<dim, Number>;
-
-  using VectorType = dealii::LinearAlgebra::distributed::Vector<Number>;
-
-  using scalar = dealii::VectorizedArray<Number>;
-  using vector = dealii::Tensor<1, dim, dealii::VectorizedArray<Number>>;
-
-  using Range = std::pair<unsigned int, unsigned int>;
-
-  using CellIntegratorU = CellIntegrator<dim, dim, Number>;
-
-public:
-  PermeabilityOperator() = default;
-
-  void
-  initialize(dealii::MatrixFree<dim, Number> const & matrix_free,
-             PermeabilityOperatorData<dim> const &   data);
-
-  void
-  apply(VectorType & dst, VectorType const & src) const;
-
-  void
-  apply_add(VectorType & dst, VectorType const & src) const;
-
-private:
-  void
-  do_cell_integral(CellIntegratorU & velocity) const;
-
-  void
-  cell_loop(dealii::MatrixFree<dim, Number> const & matrix_free,
-            VectorType &                            dst,
-            VectorType const &                      src,
-            Range const &                           cell_range) const;
-
-  dealii::MatrixFree<dim, Number> const * matrix_free;
-
-  Operators::PermeabilityKernel<dim, Number> kernel;
-
-  PermeabilityOperatorData<dim> data;
-};
-
 } // namespace Darcy
 } // namespace ExaDG
 #endif // EXADG_DARCY_PERMEABILITY_OPERATOR_H
