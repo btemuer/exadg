@@ -37,7 +37,7 @@ namespace Operators
 template<int dim>
 struct DivergenceKernelData
 {
-  std::shared_ptr<dealii::Function<dim>> porosity_field;
+  std::shared_ptr<dealii::Function<dim>> initial_porosity_field;
 };
 
 template<int dim, typename Number>
@@ -78,16 +78,15 @@ public:
    */
   inline DEAL_II_ALWAYS_INLINE //
     vector
-    calculate_flux(vector const & value_m,
-                   vector const & value_p,
-                   point const &  q,
-                   Number const   time) const
+    calculate_flux(vector const & value_m, vector const & value_p, point const & q) const
   {
-    AssertThrow(data.porosity_field, dealii::ExcMessage("Porosity field function not set."));
+    AssertThrow(data.initial_porosity_field,
+                dealii::ExcMessage("Initial porosity field function not set."));
 
-    auto const porosity = FunctionEvaluator<0, dim, Number>::value(data.porosity_field, q, time);
+    auto const initial_porosity =
+      FunctionEvaluator<0, dim, Number>::value(data.initial_porosity_field, q, 0.0);
 
-    return porosity * 0.5 * (value_m + value_p);
+    return initial_porosity * 0.5 * (value_m + value_p);
   }
 
   /*
@@ -96,15 +95,17 @@ public:
    */
   inline DEAL_II_ALWAYS_INLINE //
     vector
-    get_volume_flux(CellIntegratorU & velocity, unsigned int const q, Number const time) const
+    get_volume_flux(CellIntegratorU & velocity, unsigned int const q) const
   {
-    AssertThrow(data.porosity_field, dealii::ExcMessage("Porosity field function not set."));
+    AssertThrow(data.initial_porosity_field,
+                dealii::ExcMessage("Initial porosity field function not set."));
 
-    auto const porosity = FunctionEvaluator<0, dim, Number>::value(data.porosity_field,
-                                                                   velocity.quadrature_point(q),
-                                                                   time);
+    auto const initial_porosity =
+      FunctionEvaluator<0, dim, Number>::value(data.initial_porosity_field,
+                                               velocity.quadrature_point(q),
+                                               0.0);
     // minus sign due to integration by parts
-    return -porosity * velocity.get_value(q);
+    return -initial_porosity * velocity.get_value(q);
   }
 
 private:

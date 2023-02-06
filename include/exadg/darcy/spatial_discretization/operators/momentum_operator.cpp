@@ -27,11 +27,14 @@ namespace Darcy
 template<int dim, typename Number>
 void
 MomentumOperator<dim, Number>::initialize(
-  dealii::MatrixFree<dim, Number> const &   matrix_free,
-  dealii::AffineConstraints<Number> const & affine_constraints,
-  MomentumOperatorData<dim> const &         data)
+  dealii::MatrixFree<dim, Number> const &           matrix_free,
+  dealii::AffineConstraints<Number> const &         affine_constraints,
+  MomentumOperatorData<dim> const &                 data,
+  std::shared_ptr<GridVelocityManager<dim, Number>> grid_velocity_manager_in)
 {
   operator_data = data;
+
+  grid_velocity_manager = grid_velocity_manager_in;
 
   Base::reinit(matrix_free, affine_constraints, data);
 
@@ -58,13 +61,11 @@ MomentumOperator<dim, Number>::initialize(
   {
     if(operator_data.ale)
     {
-      this->ale_momentum_kernel = std::make_shared<Operators::AleMomentumKernel<dim, Number>>();
-      this->ale_momentum_kernel->reinit(matrix_free,
-                                        operator_data.ale_momentum_kernel_data,
-                                        operator_data.dof_index,
-                                        operator_data.quad_index);
+      this->coupling_momentum_kernel =
+        std::make_shared<Operators::CouplingMomentumKernel<dim, Number>>();
+      this->coupling_momentum_kernel->reinit(operator_data.ale_momentum_kernel_data);
       this->integrator_flags =
-        this->integrator_flags | this->ale_momentum_kernel->get_integrator_flags();
+        this->integrator_flags | this->coupling_momentum_kernel->get_integrator_flags();
     }
   }
 }
@@ -92,19 +93,12 @@ MomentumOperator<dim, Number>::set_scaling_factor_mass_operator(Number const fac
 
 template<int dim, typename Number>
 void
-MomentumOperator<dim, Number>::set_grid_velocity(VectorType const & grid_velocity)
-{
-  ale_momentum_kernel->set_grid_velocity_ptr(grid_velocity);
-}
-
-template<int dim, typename Number>
-void
 MomentumOperator<dim, Number>::reinit_cell(unsigned int const cell) const
 {
   Base::reinit_cell(cell);
 
   if(operator_data.ale)
-    ale_momentum_kernel->reinit_cell(cell);
+    grid_velocity_manager->reinit_cell(cell);
 }
 
 template<int dim, typename Number>
@@ -114,7 +108,7 @@ MomentumOperator<dim, Number>::reinit_face(unsigned int const face) const
   Base::reinit_face(face);
 
   if(operator_data.ale)
-    ale_momentum_kernel->reinit_face(face);
+    grid_velocity_manager->reinit_face(face);
 }
 
 template<int dim, typename Number>
@@ -124,7 +118,7 @@ MomentumOperator<dim, Number>::reinit_boundary_face(unsigned int const face) con
   Base::reinit_boundary_face(face);
 
   if(operator_data.ale)
-    ale_momentum_kernel->reinit_boundary_face(face);
+    grid_velocity_manager->reinit_boundary_face(face);
 }
 
 
@@ -146,7 +140,8 @@ MomentumOperator<dim, Number>::do_cell_integral(IntegratorCell & integrator) con
     if(operator_data.ale)
     {
       dyadic const gradient = integrator.get_gradient(q);
-      value_flux += -ale_momentum_kernel->get_volume_flux(gradient, q);
+      value_flux += -coupling_momentum_kernel->get_volume_flux(
+        gradient, grid_velocity_manager->get_grid_velocity_cell(q));
     }
 
     integrator.submit_value(value_flux, q);
@@ -162,11 +157,15 @@ MomentumOperator<dim, Number>::do_face_integral(IntegratorFace & integrator_m,
   {
     for(unsigned int q = 0; q < integrator_m.n_q_points; ++q)
     {
-      vector const value_m  = integrator_m.get_value(q);
-      vector const value_p  = integrator_p.get_value(q);
-      vector const normal_m = integrator_m.get_normal_vector(q);
+      vector const velocity_value_m      = integrator_m.get_value(q);
+      vector const velocity_value_p      = integrator_p.get_value(q);
+      vector const grid_velocity_value_m = grid_velocity_manager->get_grid_velocity_face(q);
+      vector const normal_m              = integrator_m.get_normal_vector(q);
 
-      vector const flux = -ale_momentum_kernel->calculate_flux(value_m, value_p, normal_m, q);
+      vector const flux = -coupling_momentum_kernel->calculate_flux(velocity_value_m,
+                                                                    velocity_value_p,
+                                                                    grid_velocity_value_m,
+                                                                    normal_m);
 
       integrator_m.submit_value(flux, q);
       integrator_p.submit_value(-flux, q);
@@ -185,11 +184,15 @@ MomentumOperator<dim, Number>::do_face_int_integral(IntegratorFace & integrator_
   {
     for(unsigned int q = 0; q < integrator_m.n_q_points; ++q)
     {
-      vector const value_m = integrator_m.get_value(q);
-      vector const value_p;
-      vector const normal_m = integrator_m.get_normal_vector(q);
+      vector const velocity_value_m = integrator_m.get_value(q);
+      vector const velocity_value_p;
+      vector const grid_velocity_value_m = grid_velocity_manager->get_grid_velocity_face(q);
+      vector const normal_m              = integrator_m.get_normal_vector(q);
 
-      vector const flux = -ale_momentum_kernel->calculate_flux(value_m, value_p, normal_m, q);
+      vector const flux = -coupling_momentum_kernel->calculate_flux(velocity_value_m,
+                                                                    velocity_value_p,
+                                                                    grid_velocity_value_m,
+                                                                    normal_m);
 
       integrator_m.submit_value(flux, q);
     }
@@ -209,11 +212,11 @@ MomentumOperator<dim, Number>::do_boundary_integral(
 
     for(unsigned int q = 0; q < integrator.n_q_points; ++q)
     {
-      vector const value_m = IncNS::calculate_interior_value(q, integrator, operator_type);
+      vector const velocity_value_m = IncNS::calculate_interior_value(q, integrator, operator_type);
 
-      vector const value_p = std::invoke([&]() {
+      vector const velocity_value_p = std::invoke([&]() {
         if(operator_data.use_boundary_data == true)
-          return calculate_exterior_value(value_m,
+          return calculate_exterior_value(velocity_value_m,
                                           q,
                                           integrator,
                                           operator_type,
@@ -222,11 +225,16 @@ MomentumOperator<dim, Number>::do_boundary_integral(
                                           operator_data.bc,
                                           this->time);
         else
-          return value_m;
+          return velocity_value_m;
       });
 
-      vector const normal_m = integrator.get_normal_vector(q);
-      vector const flux     = ale_momentum_kernel->calculate_flux(value_m, value_p, normal_m, q);
+      vector const grid_velocity_value_m = grid_velocity_manager->get_grid_velocity_face(q);
+      vector const normal_m              = integrator.get_normal_vector(q);
+
+      vector const flux = coupling_momentum_kernel->calculate_flux(velocity_value_m,
+                                                                   velocity_value_p,
+                                                                   grid_velocity_value_m,
+                                                                   normal_m);
 
       integrator.submit_value(flux, q);
     }
@@ -283,10 +291,10 @@ MomentumOperator<dim, Number>::cell_loop_inhom_operator(
 
       for(unsigned int q = 0; q < this->integrator->n_q_points; ++q)
       {
-        vector const grid_velocity = ale_momentum_kernel->get_grid_velocity(q);
+        vector const grid_velocity_value = grid_velocity_manager->get_grid_velocity_cell(q);
 
         vector const flux =
-          -permeability_kernel->get_volume_flux(grid_velocity,
+          -permeability_kernel->get_volume_flux(grid_velocity_value,
                                                 this->integrator->quadrature_point(q));
 
         this->integrator->submit_value(flux, q);

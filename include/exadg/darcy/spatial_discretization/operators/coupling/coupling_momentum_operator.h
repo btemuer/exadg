@@ -19,8 +19,8 @@
  *  ______________________________________________________________________
  */
 
-#ifndef EXADG_DARCY_ALE_MOMENTUM_OPERATOR_H
-#define EXADG_DARCY_ALE_MOMENTUM_OPERATOR_H
+#ifndef EXADG_DARCY_COUPLING_MOMENTUM_OPERATOR_H
+#define EXADG_DARCY_COUPLING_MOMENTUM_OPERATOR_H
 
 #include "exadg/darcy/user_interface/parameters.h"
 #include "exadg/matrix_free/integrators.h"
@@ -32,13 +32,13 @@ namespace Darcy
 {
 namespace Operators
 {
-struct AleMomentumKernelData
+struct CouplingMomentumKernelData
 {
   double upwind_factor{1.0};
 };
 
 template<int dim, typename Number>
-class AleMomentumKernel
+class CouplingMomentumKernel
 {
 private:
   using scalar = dealii::VectorizedArray<Number>;
@@ -52,18 +52,9 @@ private:
 
 public:
   void
-  reinit(dealii::MatrixFree<dim, Number> const & matrix_free,
-         AleMomentumKernelData const &           data_in,
-         unsigned int const                      dof_index,
-         unsigned int const                      quad_index)
+  reinit(CouplingMomentumKernelData const & data_in)
   {
     data = data_in;
-
-    integrator_grid_velocity = std::make_shared<IntegratorCell>(matrix_free, dof_index, quad_index);
-    integrator_grid_velocity_face =
-      std::make_shared<IntegratorFace>(matrix_free, true, dof_index, quad_index);
-
-    matrix_free.initialize_dof_vector(grid_velocity.own(), dof_index);
   }
 
   static MappingFlags
@@ -92,69 +83,25 @@ public:
     return flags;
   }
 
-  void
-  reinit_cell(unsigned int const cell) const
-  {
-    integrator_grid_velocity->reinit(cell);
-    integrator_grid_velocity->gather_evaluate(*grid_velocity, dealii::EvaluationFlags::values);
-  }
-
-  void
-  reinit_face(unsigned int const face) const
-  {
-    integrator_grid_velocity_face->reinit(face);
-    integrator_grid_velocity_face->gather_evaluate(*grid_velocity, dealii::EvaluationFlags::values);
-  }
-
-  void
-  reinit_boundary_face(unsigned int const face) const
-  {
-    integrator_grid_velocity_face->reinit(face);
-    integrator_grid_velocity_face->gather_evaluate(*grid_velocity, dealii::EvaluationFlags::values);
-  }
-
-  void
-  set_grid_velocity_ptr(VectorType const & grid_velocity_in)
-  {
-    grid_velocity.reset(grid_velocity_in);
-
-    grid_velocity->update_ghost_values();
-  }
-
-  VectorType const &
-  get_grid_velocity_vector() const
-  {
-    return *grid_velocity;
-  }
-
   inline DEAL_II_ALWAYS_INLINE //
     vector
-    get_volume_flux(dyadic const & velocity_gradient, unsigned int const q)
+    get_volume_flux(dyadic const & velocity_gradient, vector const & grid_velocity_value)
   {
-    vector const grid_velocity_value = integrator_grid_velocity->get_value(q);
-
     return velocity_gradient * grid_velocity_value;
   }
 
   inline DEAL_II_ALWAYS_INLINE //
     vector
-    get_grid_velocity(unsigned int const q)
+    calculate_flux(vector const & velocity_value_m,
+                   vector const & velocity_value_P,
+                   vector const & grid_velocity_value_m,
+                   vector const & normal_m)
   {
-    return integrator_grid_velocity->get_value(q);
-  }
-
-  inline DEAL_II_ALWAYS_INLINE //
-    vector
-    calculate_flux(vector const &     velocity_value_m,
-                   vector const &     velocity_value_P,
-                   vector const &     normal_m,
-                   unsigned int const q)
-  {
-    vector grid_velocity_value  = integrator_grid_velocity_face->get_value(q);
+    vector grid_velocity_value  = grid_velocity_value_m;
     scalar normal_grid_velocity = grid_velocity_value * normal_m;
 
-    //vector average_velocity = 0.5 * (velocity_value_m + velocity_value_P);
-    vector velocity_jump    = velocity_value_m - velocity_value_P;
+    // vector average_velocity = 0.5 * (velocity_value_m + velocity_value_P);
+    vector velocity_jump = velocity_value_m - velocity_value_P;
 
     vector flux = 0.5 * velocity_jump *
                   (data.upwind_factor * std::abs(normal_grid_velocity) - normal_grid_velocity);
@@ -163,7 +110,7 @@ public:
   }
 
 private:
-  AleMomentumKernelData data;
+  CouplingMomentumKernelData data;
 
   lazy_ptr<VectorType> grid_velocity;
 
@@ -175,4 +122,4 @@ private:
 } // namespace Darcy
 } // namespace ExaDG
 
-#endif // EXADG_DARCY_ALE_MOMENTUM_OPERATOR_H
+#endif // EXADG_DARCY_COUPLING_MOMENTUM_OPERATOR_H

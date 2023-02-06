@@ -330,6 +330,8 @@ private:
   void
   initialize_operators();
 
+  void
+  initialize_grid_velocity_manager();
 
   /*
    * Grid
@@ -379,6 +381,8 @@ private:
 
   std::shared_ptr<MatrixFreeData<dim, Number>>     matrix_free_data;
   std::shared_ptr<dealii::MatrixFree<dim, Number>> matrix_free;
+
+  std::shared_ptr<GridVelocityManager<dim, Number>> grid_velocity_manager;
 
   /*
    * Basic operators

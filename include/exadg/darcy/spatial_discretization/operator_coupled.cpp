@@ -269,7 +269,7 @@ OperatorCoupled<dim, Number>::rhs(OperatorCoupled::BlockVectorType & dst, double
     if(param.math_model.right_hand_side)
       rhs_operator.evaluate_add(dst.block(0), time);
 
-    if (param.math_model.ale)
+    if(param.math_model.ale)
       momentum_operator.rhs_add(dst.block(0), time);
   }
 
@@ -762,7 +762,7 @@ template<int dim, typename Number>
 void
 OperatorCoupled<dim, Number>::set_grid_velocity(VectorType const & grid_velocity)
 {
-  momentum_operator.set_grid_velocity(grid_velocity);
+  grid_velocity_manager->set_grid_velocity(grid_velocity);
 }
 
 template<int dim, typename Number>
@@ -798,7 +798,7 @@ OperatorCoupled<dim, Number>::initialize_operators()
         param.linear_solver.preconditioner.velocity_block.block_jacobi.solver_data;
     }
 
-    data.permeability_kernel_data.porosity_field = field_functions->porosity_field;
+    data.permeability_kernel_data.initial_porosity_field = field_functions->porosity_field;
     data.permeability_kernel_data.inverse_permeability_field =
       field_functions->inverse_permeability_field;
     data.permeability_kernel_data.viscosity = param.physical_quantities.viscosity;
@@ -806,7 +806,8 @@ OperatorCoupled<dim, Number>::initialize_operators()
     data.ale_momentum_kernel_data.upwind_factor = 0.5;
     data.bc                                     = boundary_descriptor->velocity;
 
-    momentum_operator.initialize(*matrix_free, constraint_u, data);
+    initialize_grid_velocity_manager();
+    momentum_operator.initialize(*matrix_free, constraint_u, data, grid_velocity_manager);
   }
 
   // Body force operator
@@ -836,14 +837,25 @@ OperatorCoupled<dim, Number>::initialize_operators()
   {
     DivergenceOperatorData<dim> data;
 
-    data.dof_index_velocity         = get_dof_index_velocity();
-    data.dof_index_pressure         = get_dof_index_pressure();
-    data.quad_index                 = get_quad_index_velocity();
-    data.bc                         = boundary_descriptor->velocity;
-    data.kernel_data.porosity_field = field_functions->porosity_field;
+    data.dof_index_velocity                 = get_dof_index_velocity();
+    data.dof_index_pressure                 = get_dof_index_pressure();
+    data.quad_index                         = get_quad_index_velocity();
+    data.bc                                 = boundary_descriptor->velocity;
+    data.kernel_data.initial_porosity_field = field_functions->porosity_field;
 
     divergence_operator.initialize(*matrix_free, data);
   }
+}
+
+template<int dim, typename Number>
+void
+OperatorCoupled<dim, Number>::initialize_grid_velocity_manager()
+{
+  grid_velocity_manager = std::make_shared<GridVelocityManager<dim, Number>>();
+
+  grid_velocity_manager->initialize(*matrix_free,
+                                    get_dof_index_velocity(),
+                                    get_quad_index_velocity());
 }
 
 template<int dim, typename Number>

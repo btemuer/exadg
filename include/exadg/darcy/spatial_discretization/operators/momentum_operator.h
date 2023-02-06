@@ -22,7 +22,8 @@
 #ifndef EXADG_DARCY_MOMENTUM_OPERATOR_H
 #define EXADG_DARCY_MOMENTUM_OPERATOR_H
 
-#include <exadg/darcy/spatial_discretization/operators/ale_momentum_operator.h>
+#include <exadg/darcy/spatial_discretization/operators/coupling/coupling_momentum_operator.h>
+#include <exadg/darcy/spatial_discretization/operators/grid_velocity_manager.h>
 #include <exadg/darcy/spatial_discretization/operators/permeability_operator.h>
 #include <exadg/incompressible_navier_stokes/spatial_discretization/operators/weak_boundary_conditions.h>
 #include <exadg/operators/mass_kernel.h>
@@ -41,7 +42,7 @@ struct MomentumOperatorData : public OperatorBaseData
 
   Operators::PermeabilityKernelData<dim> permeability_kernel_data;
 
-  Operators::AleMomentumKernelData ale_momentum_kernel_data;
+  Operators::CouplingMomentumKernelData ale_momentum_kernel_data;
 
   bool use_boundary_data{true};
 
@@ -71,9 +72,10 @@ public:
   using value_type = Number;
 
   void
-  initialize(dealii::MatrixFree<dim, Number> const &   matrix_free,
-             dealii::AffineConstraints<Number> const & affine_constraints,
-             MomentumOperatorData<dim> const &         data);
+  initialize(dealii::MatrixFree<dim, Number> const &           matrix_free,
+             dealii::AffineConstraints<Number> const &         affine_constraints,
+             MomentumOperatorData<dim> const &                 data,
+             std::shared_ptr<GridVelocityManager<dim, Number>> grid_velocity_manager_in);
 
   MomentumOperatorData<dim> const &
   get_data() const;
@@ -83,9 +85,6 @@ public:
 
   void
   set_scaling_factor_mass_operator(Number factor);
-
-  void
-  set_grid_velocity(VectorType const & grid_velocity_in);
 
   void
   rhs(VectorType & rhs, double evaluation_time) const;
@@ -138,9 +137,11 @@ private:
 
   MomentumOperatorData<dim> operator_data;
 
-  std::shared_ptr<MassKernel<dim, Number>>                    mass_kernel;
-  std::shared_ptr<Operators::PermeabilityKernel<dim, Number>> permeability_kernel;
-  std::shared_ptr<Operators::AleMomentumKernel<dim, Number>>  ale_momentum_kernel;
+  std::shared_ptr<MassKernel<dim, Number>>                        mass_kernel;
+  std::shared_ptr<Operators::PermeabilityKernel<dim, Number>>     permeability_kernel;
+  std::shared_ptr<Operators::CouplingMomentumKernel<dim, Number>> coupling_momentum_kernel;
+
+  std::shared_ptr<GridVelocityManager<dim, Number>> grid_velocity_manager;
 
   double scaling_factor_mass{1.0};
 

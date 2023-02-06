@@ -37,7 +37,7 @@ namespace Operators
 template<int dim>
 struct PermeabilityKernelData
 {
-  std::shared_ptr<dealii::Function<dim>> porosity_field;
+  std::shared_ptr<dealii::Function<dim>> initial_porosity_field;
   std::shared_ptr<dealii::Function<dim>> inverse_permeability_field;
   double                                 viscosity;
 };
@@ -91,19 +91,19 @@ public:
     get_volume_flux(vector const & velocity_value, point const & q_point) const
   {
     AssertThrow(data.viscosity > 0.0, dealii::ExcMessage("Problem with the viscosity."));
-    AssertThrow(data.porosity_field, dealii::ExcMessage("Porosity field function not set."));
+    AssertThrow(data.initial_porosity_field, dealii::ExcMessage("Porosity field function not set."));
     AssertThrow(data.inverse_permeability_field,
                 dealii::ExcMessage("Inverse permeability field function not set."));
 
     scalar const viscosity = dealii::make_vectorized_array<Number>(data.viscosity);
-    scalar const porosity =
-      FunctionEvaluator<0, dim, Number>::value(data.porosity_field, q_point, 0.0);
+    scalar const initial_porosity =
+      FunctionEvaluator<0, dim, Number>::value(data.initial_porosity_field, q_point, 0.0);
     dyadic const inverse_permeability =
       FunctionEvaluator<2, dim, Number>::value_symmetric(data.inverse_permeability_field,
                                                          q_point,
                                                          0.0);
 
-    return viscosity * porosity * inverse_permeability * velocity_value;
+    return viscosity * initial_porosity * inverse_permeability * velocity_value;
   }
 
 private:

@@ -33,9 +33,8 @@ DivergenceOperator<dim, Number>::DivergenceOperator()
 
 template<int dim, typename Number>
 void
-DivergenceOperator<dim, Number>::initialize(
-  dealii::MatrixFree<dim, Number> const &   matrix_free_in,
-  DivergenceOperatorData<dim> const & data_in)
+DivergenceOperator<dim, Number>::initialize(dealii::MatrixFree<dim, Number> const & matrix_free_in,
+                                            DivergenceOperatorData<dim> const &     data_in)
 {
   this->matrix_free = &matrix_free_in;
   this->data        = data_in;
@@ -101,27 +100,27 @@ DivergenceOperator<dim, Number>::rhs_add(VectorType & dst, Number const evaluati
 template<int dim, typename Number>
 void
 DivergenceOperator<dim, Number>::do_cell_integral(CellIntegratorP & pressure,
-                                                        CellIntegratorU & velocity) const
+                                                  CellIntegratorU & velocity) const
 {
   for(unsigned int q = 0; q < velocity.n_q_points; ++q)
   {
-    pressure.submit_gradient(kernel.get_volume_flux(velocity, q, this->time), q);
+    pressure.submit_gradient(kernel.get_volume_flux(velocity, q), q);
   }
 }
 
 template<int dim, typename Number>
 void
 DivergenceOperator<dim, Number>::do_face_integral(FaceIntegratorU & velocity_m,
-                                                        FaceIntegratorU & velocity_p,
-                                                        FaceIntegratorP & pressure_m,
-                                                        FaceIntegratorP & pressure_p) const
+                                                  FaceIntegratorU & velocity_p,
+                                                  FaceIntegratorP & pressure_m,
+                                                  FaceIntegratorP & pressure_p) const
 {
   for(unsigned int q = 0; q < velocity_m.n_q_points; ++q)
   {
     vector value_m = velocity_m.get_value(q);
     vector value_p = velocity_p.get_value(q);
 
-    vector const flux = kernel.calculate_flux(value_m, value_p, velocity_m.quadrature_point(q), this->time);
+    vector const flux = kernel.calculate_flux(value_m, value_p, velocity_m.quadrature_point(q));
 
     scalar const flux_times_normal = flux * velocity_m.get_normal_vector(q);
 
@@ -153,7 +152,7 @@ DivergenceOperator<dim, Number>::do_boundary_integral(
         return value_m;
     });
 
-    vector const flux   = kernel.calculate_flux(value_m, value_p, velocity.quadrature_point(q), this->time);
+    vector const flux   = kernel.calculate_flux(value_m, value_p, velocity.quadrature_point(q));
     vector const normal = velocity.get_normal_vector(q);
 
     pressure.submit_value(flux * normal, q);
@@ -162,11 +161,10 @@ DivergenceOperator<dim, Number>::do_boundary_integral(
 
 template<int dim, typename Number>
 void
-DivergenceOperator<dim, Number>::cell_loop(
-  dealii::MatrixFree<dim, Number> const & matrix_free,
-  VectorType &                            dst,
-  VectorType const &                      src,
-  Range const &                           cell_range) const
+DivergenceOperator<dim, Number>::cell_loop(dealii::MatrixFree<dim, Number> const & matrix_free,
+                                           VectorType &                            dst,
+                                           VectorType const &                      src,
+                                           Range const &                           cell_range) const
 {
   CellIntegratorU velocity(matrix_free, data.dof_index_velocity, data.quad_index);
   CellIntegratorP pressure(matrix_free, data.dof_index_pressure, data.quad_index);
@@ -186,11 +184,10 @@ DivergenceOperator<dim, Number>::cell_loop(
 
 template<int dim, typename Number>
 void
-DivergenceOperator<dim, Number>::face_loop(
-  dealii::MatrixFree<dim, Number> const & matrix_free,
-  VectorType &                            dst,
-  VectorType const &                      src,
-  Range const &                           face_range) const
+DivergenceOperator<dim, Number>::face_loop(dealii::MatrixFree<dim, Number> const & matrix_free,
+                                           VectorType &                            dst,
+                                           VectorType const &                      src,
+                                           Range const &                           face_range) const
 {
   FaceIntegratorU velocity_m(matrix_free, true, data.dof_index_velocity, data.quad_index);
   FaceIntegratorU velocity_p(matrix_free, false, data.dof_index_velocity, data.quad_index);
@@ -246,21 +243,19 @@ DivergenceOperator<dim, Number>::boundary_face_loop_hom_operator(
 
 template<int dim, typename Number>
 void
-DivergenceOperator<dim, Number>::cell_loop_inhom_operator(
-  dealii::MatrixFree<dim, Number> const &,
-  VectorType &,
-  VectorType const &,
-  Range const &) const
+DivergenceOperator<dim, Number>::cell_loop_inhom_operator(dealii::MatrixFree<dim, Number> const &,
+                                                          VectorType &,
+                                                          VectorType const &,
+                                                          Range const &) const
 {
 }
 
 template<int dim, typename Number>
 void
-DivergenceOperator<dim, Number>::face_loop_inhom_operator(
-  dealii::MatrixFree<dim, Number> const &,
-  VectorType &,
-  VectorType const &,
-  Range const &) const
+DivergenceOperator<dim, Number>::face_loop_inhom_operator(dealii::MatrixFree<dim, Number> const &,
+                                                          VectorType &,
+                                                          VectorType const &,
+                                                          Range const &) const
 {
 }
 
