@@ -769,6 +769,8 @@ template<int dim, typename Number>
 void
 OperatorCoupled<dim, Number>::initialize_operators()
 {
+  initialize_grid_velocity_manager();
+
   // Mass operator
   {
     MassOperatorData<dim> data;
@@ -806,7 +808,7 @@ OperatorCoupled<dim, Number>::initialize_operators()
     data.ale_momentum_kernel_data.upwind_factor = 0.5;
     data.bc                                     = boundary_descriptor->velocity;
 
-    initialize_grid_velocity_manager();
+
     momentum_operator.initialize(*matrix_free, constraint_u, data, grid_velocity_manager);
   }
 
@@ -843,7 +845,7 @@ OperatorCoupled<dim, Number>::initialize_operators()
     data.bc                                 = boundary_descriptor->velocity;
     data.kernel_data.initial_porosity_field = field_functions->porosity_field;
 
-    divergence_operator.initialize(*matrix_free, data);
+    divergence_operator.initialize(*matrix_free, data, grid_velocity_manager);
   }
 }
 

@@ -22,9 +22,9 @@
 #ifndef EXADG_DARCY_ALE_MASS_OPERATOR_H
 #define EXADG_DARCY_ALE_MASS_OPERATOR_H
 
-#include <exadg/functions_and_boundary_conditions/evaluate_functions.h>
-#include <exadg/matrix_free/integrators.h>
-#include <exadg/operators/mapping_flags.h>
+#include "exadg/functions_and_boundary_conditions/evaluate_functions.h"
+#include "exadg/matrix_free/integrators.h"
+#include "exadg/operators/mapping_flags.h"
 
 namespace ExaDG
 {
@@ -33,13 +33,13 @@ namespace Darcy
 namespace Operators
 {
 template<int dim>
-struct CouplingMassKernelData
+struct PorosityRateData
 {
   std::shared_ptr<dealii::Function<dim>> initial_porosity_field;
 };
 
 template<int dim, typename Number>
-class CouplingMassKernel
+class PorosityRate
 {
 private:
   using IntegratorCell = CellIntegrator<dim, dim, Number>;
@@ -54,7 +54,7 @@ private:
 public:
   void
   reinit(dealii::MatrixFree<dim, Number> const & matrix_free,
-         CouplingMassKernelData<dim> const &     data_in,
+         PorosityRateData<dim> const &     data_in,
          unsigned int const                      dof_index,
          unsigned int const                      quad_index) const
   {
@@ -105,7 +105,7 @@ public:
   }
 
 private:
-  mutable CouplingMassKernelData<dim> data;
+  mutable PorosityRateData<dim> data;
 };
 } // namespace Operators
 } // namespace Darcy

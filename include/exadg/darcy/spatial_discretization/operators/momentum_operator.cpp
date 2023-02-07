@@ -61,11 +61,11 @@ MomentumOperator<dim, Number>::initialize(
   {
     if(operator_data.ale)
     {
-      this->coupling_momentum_kernel =
-        std::make_shared<Operators::CouplingMomentumKernel<dim, Number>>();
-      this->coupling_momentum_kernel->reinit(operator_data.ale_momentum_kernel_data);
+      this->grid_convection_kernel =
+        std::make_shared<Operators::GridConvectionKernel<dim, Number>>();
+      this->grid_convection_kernel->reinit(operator_data.ale_momentum_kernel_data);
       this->integrator_flags =
-        this->integrator_flags | this->coupling_momentum_kernel->get_integrator_flags();
+        this->integrator_flags | this->grid_convection_kernel->get_integrator_flags();
     }
   }
 }
@@ -140,7 +140,7 @@ MomentumOperator<dim, Number>::do_cell_integral(IntegratorCell & integrator) con
     if(operator_data.ale)
     {
       dyadic const gradient = integrator.get_gradient(q);
-      value_flux += -coupling_momentum_kernel->get_volume_flux(
+      value_flux += -grid_convection_kernel->get_volume_flux(
         gradient, grid_velocity_manager->get_grid_velocity_cell(q));
     }
 
@@ -162,7 +162,7 @@ MomentumOperator<dim, Number>::do_face_integral(IntegratorFace & integrator_m,
       vector const grid_velocity_value_m = grid_velocity_manager->get_grid_velocity_face(q);
       vector const normal_m              = integrator_m.get_normal_vector(q);
 
-      vector const flux = -coupling_momentum_kernel->calculate_flux(velocity_value_m,
+      vector const flux = -grid_convection_kernel->calculate_flux(velocity_value_m,
                                                                     velocity_value_p,
                                                                     grid_velocity_value_m,
                                                                     normal_m);
@@ -189,7 +189,7 @@ MomentumOperator<dim, Number>::do_face_int_integral(IntegratorFace & integrator_
       vector const grid_velocity_value_m = grid_velocity_manager->get_grid_velocity_face(q);
       vector const normal_m              = integrator_m.get_normal_vector(q);
 
-      vector const flux = -coupling_momentum_kernel->calculate_flux(velocity_value_m,
+      vector const flux = -grid_convection_kernel->calculate_flux(velocity_value_m,
                                                                     velocity_value_p,
                                                                     grid_velocity_value_m,
                                                                     normal_m);
@@ -231,7 +231,7 @@ MomentumOperator<dim, Number>::do_boundary_integral(
       vector const grid_velocity_value_m = grid_velocity_manager->get_grid_velocity_face(q);
       vector const normal_m              = integrator.get_normal_vector(q);
 
-      vector const flux = coupling_momentum_kernel->calculate_flux(velocity_value_m,
+      vector const flux = grid_convection_kernel->calculate_flux(velocity_value_m,
                                                                    velocity_value_p,
                                                                    grid_velocity_value_m,
                                                                    normal_m);

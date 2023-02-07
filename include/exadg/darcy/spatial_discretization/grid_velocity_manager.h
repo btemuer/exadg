@@ -22,8 +22,8 @@
 #ifndef EXADG_DARCY_GRID_VELOCITY_MANAGER_H
 #define EXADG_DARCY_GRID_VELOCITY_MANAGER_H
 
-#include <exadg/operators/lazy_ptr.h>
 #include "exadg/matrix_free/integrators.h"
+#include "exadg/operators/lazy_ptr.h"
 
 namespace ExaDG
 {

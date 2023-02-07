@@ -32,13 +32,13 @@ namespace Darcy
 {
 namespace Operators
 {
-struct CouplingMomentumKernelData
+struct GridConvectionKernelData
 {
   double upwind_factor{1.0};
 };
 
 template<int dim, typename Number>
-class CouplingMomentumKernel
+class GridConvectionKernel
 {
 private:
   using scalar = dealii::VectorizedArray<Number>;
@@ -52,7 +52,7 @@ private:
 
 public:
   void
-  reinit(CouplingMomentumKernelData const & data_in)
+  reinit(GridConvectionKernelData const & data_in)
   {
     data = data_in;
   }
@@ -110,9 +110,7 @@ public:
   }
 
 private:
-  CouplingMomentumKernelData data;
-
-  lazy_ptr<VectorType> grid_velocity;
+  GridConvectionKernelData data;
 
   std::shared_ptr<IntegratorCell> integrator_grid_velocity;
   std::shared_ptr<IntegratorFace> integrator_grid_velocity_face;

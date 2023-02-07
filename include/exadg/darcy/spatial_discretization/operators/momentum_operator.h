@@ -22,12 +22,12 @@
 #ifndef EXADG_DARCY_MOMENTUM_OPERATOR_H
 #define EXADG_DARCY_MOMENTUM_OPERATOR_H
 
-#include <exadg/darcy/spatial_discretization/operators/coupling/coupling_momentum_operator.h>
-#include <exadg/darcy/spatial_discretization/operators/grid_velocity_manager.h>
 #include <exadg/darcy/spatial_discretization/operators/permeability_operator.h>
 #include <exadg/incompressible_navier_stokes/spatial_discretization/operators/weak_boundary_conditions.h>
 #include <exadg/operators/mass_kernel.h>
 #include <exadg/operators/operator_base.h>
+#include <exadg/darcy/spatial_discretization/grid_velocity_manager.h>
+#include <exadg/darcy/spatial_discretization/operators/grid_convection_operator.h>
 
 namespace ExaDG
 {
@@ -42,7 +42,7 @@ struct MomentumOperatorData : public OperatorBaseData
 
   Operators::PermeabilityKernelData<dim> permeability_kernel_data;
 
-  Operators::CouplingMomentumKernelData ale_momentum_kernel_data;
+  Operators::GridConvectionKernelData ale_momentum_kernel_data;
 
   bool use_boundary_data{true};
 
@@ -137,9 +137,9 @@ private:
 
   MomentumOperatorData<dim> operator_data;
 
-  std::shared_ptr<MassKernel<dim, Number>>                        mass_kernel;
-  std::shared_ptr<Operators::PermeabilityKernel<dim, Number>>     permeability_kernel;
-  std::shared_ptr<Operators::CouplingMomentumKernel<dim, Number>> coupling_momentum_kernel;
+  std::shared_ptr<MassKernel<dim, Number>>                      mass_kernel;
+  std::shared_ptr<Operators::PermeabilityKernel<dim, Number>>   permeability_kernel;
+  std::shared_ptr<Operators::GridConvectionKernel<dim, Number>> grid_convection_kernel;
 
   std::shared_ptr<GridVelocityManager<dim, Number>> grid_velocity_manager;
 

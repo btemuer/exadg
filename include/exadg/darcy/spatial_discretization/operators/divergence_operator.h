@@ -19,6 +19,7 @@
  *  ______________________________________________________________________
  */
 
+#include <exadg/darcy/spatial_discretization/grid_velocity_manager.h>
 #include <exadg/functions_and_boundary_conditions/evaluate_functions.h>
 #include <exadg/incompressible_navier_stokes/spatial_discretization/operators/weak_boundary_conditions.h>
 #include <exadg/matrix_free/integrators.h>
@@ -155,8 +156,9 @@ public:
   DivergenceOperator();
 
   void
-  initialize(dealii::MatrixFree<dim, Number> const & matrix_free,
-             DivergenceOperatorData<dim> const &     data);
+  initialize(dealii::MatrixFree<dim, Number> const &           matrix_free,
+             DivergenceOperatorData<dim> const &               data,
+             std::shared_ptr<GridVelocityManager<dim, Number>> grid_velocity_manager_in);
 
   // homogeneous operator
   void
@@ -234,6 +236,8 @@ private:
 
   // needed if Dirichlet boundary condition is evaluated from dof vector
   mutable VectorType const * velocity_bc;
+
+  std::shared_ptr<GridVelocityManager<dim, Number>> grid_velocity_manager;
 };
 
 

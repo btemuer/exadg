@@ -34,10 +34,12 @@ DivergenceOperator<dim, Number>::DivergenceOperator()
 template<int dim, typename Number>
 void
 DivergenceOperator<dim, Number>::initialize(dealii::MatrixFree<dim, Number> const & matrix_free_in,
-                                            DivergenceOperatorData<dim> const &     data_in)
+                                            DivergenceOperatorData<dim> const &     data_in,
+                                            std::shared_ptr<GridVelocityManager<dim, Number>> grid_velocity_manager_in)
 {
   this->matrix_free = &matrix_free_in;
   this->data        = data_in;
+  this->grid_velocity_manager = grid_velocity_manager_in;
 
   kernel.reinit(data_in.kernel_data);
 }
