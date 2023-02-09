@@ -27,23 +27,23 @@ namespace Darcy
 template<int dim, typename Number>
 void
 MomentumOperator<dim, Number>::initialize(
-  dealii::MatrixFree<dim, Number> const &           matrix_free,
-  dealii::AffineConstraints<Number> const &         affine_constraints,
-  MomentumOperatorData<dim> const &                 data,
-  std::shared_ptr<GridVelocityManager<dim, Number>> grid_velocity_manager_in)
+  dealii::MatrixFree<dim, Number> const &                matrix_free_in,
+  dealii::AffineConstraints<Number> const &              affine_constraints_in,
+  MomentumOperatorData<dim> const &                      data_in,
+  std::shared_ptr<StructureCouplingManager<dim, Number>> structure_coupling_manager_in)
 {
-  operator_data = data;
+  operator_data = data_in;
 
-  grid_velocity_manager = grid_velocity_manager_in;
+  structure_coupling_manager = structure_coupling_manager_in;
 
-  Base::reinit(matrix_free, affine_constraints, data);
+  Base::reinit(matrix_free_in, affine_constraints_in, data_in);
 
   // Create new objects and initialize kernels
 
   // Permeability operator
   {
     this->permeability_kernel = std::make_shared<Operators::PermeabilityKernel<dim, Number>>();
-    this->permeability_kernel->reinit(data.permeability_kernel_data);
+    this->permeability_kernel->reinit(operator_data.permeability_kernel_data);
     this->integrator_flags =
       this->integrator_flags | this->permeability_kernel->get_integrator_flags();
   }
@@ -98,7 +98,10 @@ MomentumOperator<dim, Number>::reinit_cell(unsigned int const cell) const
   Base::reinit_cell(cell);
 
   if(operator_data.ale)
-    grid_velocity_manager->reinit_cell(cell);
+  {
+    structure_coupling_manager->reinit_gather_evaluate_displacement_cell(cell);
+    structure_coupling_manager->reinit_gather_evaluate_velocity_cell(cell);
+  }
 }
 
 template<int dim, typename Number>
@@ -108,7 +111,10 @@ MomentumOperator<dim, Number>::reinit_face(unsigned int const face) const
   Base::reinit_face(face);
 
   if(operator_data.ale)
-    grid_velocity_manager->reinit_face(face);
+  {
+    structure_coupling_manager->reinit_gather_evaluate_displacement_face(face);
+    structure_coupling_manager->reinit_gather_evaluate_velocity_face(face);
+  }
 }
 
 template<int dim, typename Number>
@@ -118,7 +124,10 @@ MomentumOperator<dim, Number>::reinit_boundary_face(unsigned int const face) con
   Base::reinit_boundary_face(face);
 
   if(operator_data.ale)
-    grid_velocity_manager->reinit_boundary_face(face);
+  {
+    structure_coupling_manager->reinit_gather_evaluate_displacement_face(face);
+    structure_coupling_manager->reinit_gather_evaluate_velocity_face(face);
+  }
 }
 
 
@@ -130,7 +139,21 @@ MomentumOperator<dim, Number>::do_cell_integral(IntegratorCell & integrator) con
   {
     vector const value = integrator.get_value(q);
 
-    vector value_flux = permeability_kernel->get_volume_flux(value, integrator.quadrature_point(q));
+    scalar const viscosity =
+      dealii::make_vectorized_array<Number>(operator_data.permeability_kernel_data.viscosity);
+
+    scalar porosity = FunctionEvaluator<0, dim, Number>::value(
+      operator_data.permeability_kernel_data.initial_porosity_field,
+      this->integrator->quadrature_point(q),
+      0.0);
+
+    dyadic const inverse_permeability = FunctionEvaluator<2, dim, Number>::value_symmetric(
+      operator_data.permeability_kernel_data.inverse_permeability_field,
+      this->integrator->quadrature_point(q),
+      0.0);
+
+    vector value_flux =
+      permeability_kernel->get_volume_flux(viscosity * porosity * inverse_permeability, value);
 
     if(operator_data.unsteady_problem)
     {
@@ -141,7 +164,7 @@ MomentumOperator<dim, Number>::do_cell_integral(IntegratorCell & integrator) con
     {
       dyadic const gradient = integrator.get_gradient(q);
       value_flux += -grid_convection_kernel->get_volume_flux(
-        gradient, grid_velocity_manager->get_grid_velocity_cell(q));
+        gradient, structure_coupling_manager->get_grid_velocity(false, q));
     }
 
     integrator.submit_value(value_flux, q);
@@ -159,13 +182,13 @@ MomentumOperator<dim, Number>::do_face_integral(IntegratorFace & integrator_m,
     {
       vector const velocity_value_m      = integrator_m.get_value(q);
       vector const velocity_value_p      = integrator_p.get_value(q);
-      vector const grid_velocity_value_m = grid_velocity_manager->get_grid_velocity_face(q);
+      vector const grid_velocity_value_m = structure_coupling_manager->get_grid_velocity(true, q);
       vector const normal_m              = integrator_m.get_normal_vector(q);
 
       vector const flux = -grid_convection_kernel->calculate_flux(velocity_value_m,
-                                                                    velocity_value_p,
-                                                                    grid_velocity_value_m,
-                                                                    normal_m);
+                                                                  velocity_value_p,
+                                                                  grid_velocity_value_m,
+                                                                  normal_m);
 
       integrator_m.submit_value(flux, q);
       integrator_p.submit_value(-flux, q);
@@ -186,13 +209,13 @@ MomentumOperator<dim, Number>::do_face_int_integral(IntegratorFace & integrator_
     {
       vector const velocity_value_m = integrator_m.get_value(q);
       vector const velocity_value_p;
-      vector const grid_velocity_value_m = grid_velocity_manager->get_grid_velocity_face(q);
+      vector const grid_velocity_value_m = structure_coupling_manager->get_grid_velocity(true, q);
       vector const normal_m              = integrator_m.get_normal_vector(q);
 
       vector const flux = -grid_convection_kernel->calculate_flux(velocity_value_m,
-                                                                    velocity_value_p,
-                                                                    grid_velocity_value_m,
-                                                                    normal_m);
+                                                                  velocity_value_p,
+                                                                  grid_velocity_value_m,
+                                                                  normal_m);
 
       integrator_m.submit_value(flux, q);
     }
@@ -228,13 +251,13 @@ MomentumOperator<dim, Number>::do_boundary_integral(
           return velocity_value_m;
       });
 
-      vector const grid_velocity_value_m = grid_velocity_manager->get_grid_velocity_face(q);
+      vector const grid_velocity_value_m = structure_coupling_manager->get_grid_velocity(true, q);
       vector const normal_m              = integrator.get_normal_vector(q);
 
       vector const flux = grid_convection_kernel->calculate_flux(velocity_value_m,
-                                                                   velocity_value_p,
-                                                                   grid_velocity_value_m,
-                                                                   normal_m);
+                                                                 velocity_value_p,
+                                                                 grid_velocity_value_m,
+                                                                 normal_m);
 
       integrator.submit_value(flux, q);
     }
@@ -291,11 +314,24 @@ MomentumOperator<dim, Number>::cell_loop_inhom_operator(
 
       for(unsigned int q = 0; q < this->integrator->n_q_points; ++q)
       {
-        vector const grid_velocity_value = grid_velocity_manager->get_grid_velocity_cell(q);
+        vector const grid_velocity_value = structure_coupling_manager->get_grid_velocity(false, q);
+
+        scalar const viscosity =
+          dealii::make_vectorized_array<Number>(operator_data.permeability_kernel_data.viscosity);
+
+        scalar porosity = FunctionEvaluator<0, dim, Number>::value(
+          operator_data.permeability_kernel_data.initial_porosity_field,
+          this->integrator->quadrature_point(q),
+          0.0);
+
+        dyadic const inverse_permeability = FunctionEvaluator<2, dim, Number>::value_symmetric(
+          operator_data.permeability_kernel_data.inverse_permeability_field,
+          this->integrator->quadrature_point(q),
+          0.0);
 
         vector const flux =
-          -permeability_kernel->get_volume_flux(grid_velocity_value,
-                                                this->integrator->quadrature_point(q));
+          -permeability_kernel->get_volume_flux(viscosity * porosity * inverse_permeability,
+                                                grid_velocity_value);
 
         this->integrator->submit_value(flux, q);
       }

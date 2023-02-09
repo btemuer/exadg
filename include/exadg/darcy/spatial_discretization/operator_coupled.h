@@ -288,7 +288,7 @@ public:
    * Sets the grid velocity.
    */
   void
-  set_grid_velocity(VectorType const & u_grid_in);
+  set_grid_velocity(VectorType const & disp_grid_in, VectorType const & vel_grid_in);
 
 private:
   void
@@ -331,7 +331,7 @@ private:
   initialize_operators();
 
   void
-  initialize_grid_velocity_manager();
+  initialize_structure_coupling_manager();
 
   /*
    * Grid
@@ -382,7 +382,7 @@ private:
   std::shared_ptr<MatrixFreeData<dim, Number>>     matrix_free_data;
   std::shared_ptr<dealii::MatrixFree<dim, Number>> matrix_free;
 
-  std::shared_ptr<GridVelocityManager<dim, Number>> grid_velocity_manager;
+  std::shared_ptr<StructureCouplingManager<dim, Number>> structure_coupling_manager;
 
   /*
    * Basic operators

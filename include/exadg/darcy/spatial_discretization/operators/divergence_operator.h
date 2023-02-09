@@ -19,8 +19,7 @@
  *  ______________________________________________________________________
  */
 
-#include <exadg/darcy/spatial_discretization/grid_velocity_manager.h>
-#include <exadg/functions_and_boundary_conditions/evaluate_functions.h>
+#include <exadg/darcy/spatial_discretization/structure_coupling_manager.h>
 #include <exadg/incompressible_navier_stokes/spatial_discretization/operators/weak_boundary_conditions.h>
 #include <exadg/matrix_free/integrators.h>
 #include <exadg/operators/mapping_flags.h>
@@ -45,10 +44,6 @@ template<int dim, typename Number>
 class DivergenceKernel
 {
 private:
-  using CellIntegratorU = CellIntegrator<dim, dim, Number>;
-  using FaceIntegratorU = FaceIntegrator<dim, dim, Number>;
-
-  using point  = dealii::Point<dim, dealii::VectorizedArray<Number>>;
   using scalar = dealii::VectorizedArray<Number>;
   using vector = dealii::Tensor<1, dim, dealii::VectorizedArray<Number>>;
 
@@ -79,15 +74,12 @@ public:
    */
   inline DEAL_II_ALWAYS_INLINE //
     vector
-    calculate_flux(vector const & value_m, vector const & value_p, point const & q) const
+    calculate_flux(vector const & velocity_value_m,
+                   vector const & velocity_value_p,
+                   scalar const & fac) const
   {
-    AssertThrow(data.initial_porosity_field,
-                dealii::ExcMessage("Initial porosity field function not set."));
-
-    auto const initial_porosity =
-      FunctionEvaluator<0, dim, Number>::value(data.initial_porosity_field, q, 0.0);
-
-    return initial_porosity * 0.5 * (value_m + value_p);
+    // fac is either (porosity) or (1 - porosity)
+    return 0.5 * fac * (velocity_value_m + velocity_value_p);
   }
 
   /*
@@ -96,18 +88,13 @@ public:
    */
   inline DEAL_II_ALWAYS_INLINE //
     vector
-    get_volume_flux(CellIntegratorU & velocity, unsigned int const q) const
+    get_volume_flux(vector const & velocity_value, scalar const fac) const
   {
-    AssertThrow(data.initial_porosity_field,
-                dealii::ExcMessage("Initial porosity field function not set."));
-
-    auto const initial_porosity =
-      FunctionEvaluator<0, dim, Number>::value(data.initial_porosity_field,
-                                               velocity.quadrature_point(q),
-                                               0.0);
     // minus sign due to integration by parts
-    return -initial_porosity * velocity.get_value(q);
+    return -fac * velocity_value;
   }
+
+
 
 private:
   mutable DivergenceKernelData<dim> data;
@@ -117,21 +104,18 @@ private:
 template<int dim>
 struct DivergenceOperatorData
 {
-  DivergenceOperatorData()
-    : dof_index_velocity(0), dof_index_pressure(1), quad_index(0), use_boundary_data(true)
-  {
-  }
+  unsigned int dof_index_velocity{0};
+  unsigned int dof_index_pressure{1};
 
-  unsigned int dof_index_velocity;
-  unsigned int dof_index_pressure;
+  unsigned int quad_index{0};
 
-  unsigned int quad_index;
+  bool use_boundary_data{true};
 
-  bool use_boundary_data;
+  bool ale{false};
 
-  std::shared_ptr<IncNS::BoundaryDescriptorU<dim> const> bc;
+  std::shared_ptr<IncNS::BoundaryDescriptorU<dim> const> bc{};
 
-  Operators::DivergenceKernelData<dim> kernel_data;
+  Operators::DivergenceKernelData<dim> kernel_data{};
 };
 
 template<int dim, typename Number>
@@ -145,6 +129,8 @@ private:
   using scalar = dealii::VectorizedArray<Number>;
   using vector = dealii::Tensor<1, dim, dealii::VectorizedArray<Number>>;
 
+  using point = dealii::Point<dim, dealii::VectorizedArray<Number>>;
+
   using Range = std::pair<unsigned int, unsigned int>;
 
   using CellIntegratorU = CellIntegrator<dim, dim, Number>;
@@ -156,9 +142,9 @@ public:
   DivergenceOperator();
 
   void
-  initialize(dealii::MatrixFree<dim, Number> const &           matrix_free,
-             DivergenceOperatorData<dim> const &               data,
-             std::shared_ptr<GridVelocityManager<dim, Number>> grid_velocity_manager_in);
+  initialize(dealii::MatrixFree<dim, Number> const &                matrix_free,
+             DivergenceOperatorData<dim> const &                    data,
+             std::shared_ptr<StructureCouplingManager<dim, Number>> grid_velocity_manager_in);
 
   // homogeneous operator
   void
@@ -175,32 +161,21 @@ public:
   rhs_add(VectorType & dst, Number const evaluation_time) const;
 
 private:
-  void
-  do_cell_integral(CellIntegratorP & pressure, CellIntegratorU & velocity) const;
+  template<typename Integrator>
+  scalar
+  calculate_porosity(bool const is_face, Integrator const & integrator, unsigned int const q) const;
 
   void
-  do_face_integral(FaceIntegratorU & velocity_m,
-                   FaceIntegratorU & velocity_p,
-                   FaceIntegratorP & pressure_m,
-                   FaceIntegratorP & pressure_p) const;
+  cell_loop_hom_operator(dealii::MatrixFree<dim, Number> const & matrix_free,
+                         VectorType &                            dst,
+                         VectorType const &                      src,
+                         Range const &                           cell_range) const;
 
   void
-  do_boundary_integral(FaceIntegratorU &                  velocity,
-                       FaceIntegratorP &                  pressure,
-                       OperatorType const &               operator_type,
-                       dealii::types::boundary_id const & boundary_id) const;
-
-  void
-  cell_loop(dealii::MatrixFree<dim, Number> const & matrix_free,
-            VectorType &                            dst,
-            VectorType const &                      src,
-            Range const &                           cell_range) const;
-
-  void
-  face_loop(dealii::MatrixFree<dim, Number> const & matrix_free,
-            VectorType &                            dst,
-            VectorType const &                      src,
-            Range const &                           face_range) const;
+  face_loop_hom_operator(dealii::MatrixFree<dim, Number> const & matrix_free,
+                         VectorType &                            dst,
+                         VectorType const &                      src,
+                         Range const &                           face_range) const;
 
   void
   boundary_face_loop_hom_operator(dealii::MatrixFree<dim, Number> const & matrix_free,
@@ -237,7 +212,7 @@ private:
   // needed if Dirichlet boundary condition is evaluated from dof vector
   mutable VectorType const * velocity_bc;
 
-  std::shared_ptr<GridVelocityManager<dim, Number>> grid_velocity_manager;
+  std::shared_ptr<StructureCouplingManager<dim, Number>> structure_coupling_manager;
 };
 
 

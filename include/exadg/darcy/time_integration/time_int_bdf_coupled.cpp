@@ -115,7 +115,9 @@ TimeIntBDFCoupled<dim, Number>::ale_update()
                               this->get_time_step_size());
 
   // and hand grid velocity over to spatial discretization
-  pde_operator->set_grid_velocity(grid_velocity);
+  pde_operator->set_grid_velocity(
+    grid_coordinates_np,
+    grid_velocity); // TODO We need the displacements here and not the coordinates
 }
 
 template<int dim, typename Number>

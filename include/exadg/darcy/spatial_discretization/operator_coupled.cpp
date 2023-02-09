@@ -760,16 +760,17 @@ OperatorCoupled<dim, Number>::update_after_grid_motion()
 
 template<int dim, typename Number>
 void
-OperatorCoupled<dim, Number>::set_grid_velocity(VectorType const & grid_velocity)
+OperatorCoupled<dim, Number>::set_grid_velocity(VectorType const & disp_grid_in,
+                                                VectorType const & vel_grid_in)
 {
-  grid_velocity_manager->set_grid_velocity(grid_velocity);
+  structure_coupling_manager->set_grid_velocity(disp_grid_in, vel_grid_in);
 }
 
 template<int dim, typename Number>
 void
 OperatorCoupled<dim, Number>::initialize_operators()
 {
-  initialize_grid_velocity_manager();
+  initialize_structure_coupling_manager();
 
   // Mass operator
   {
@@ -809,7 +810,7 @@ OperatorCoupled<dim, Number>::initialize_operators()
     data.bc                                     = boundary_descriptor->velocity;
 
 
-    momentum_operator.initialize(*matrix_free, constraint_u, data, grid_velocity_manager);
+    momentum_operator.initialize(*matrix_free, constraint_u, data, structure_coupling_manager);
   }
 
   // Body force operator
@@ -843,19 +844,20 @@ OperatorCoupled<dim, Number>::initialize_operators()
     data.dof_index_pressure                 = get_dof_index_pressure();
     data.quad_index                         = get_quad_index_velocity();
     data.bc                                 = boundary_descriptor->velocity;
+    data.ale                                = param.math_model.ale;
     data.kernel_data.initial_porosity_field = field_functions->porosity_field;
 
-    divergence_operator.initialize(*matrix_free, data, grid_velocity_manager);
+    divergence_operator.initialize(*matrix_free, data, structure_coupling_manager);
   }
 }
 
 template<int dim, typename Number>
 void
-OperatorCoupled<dim, Number>::initialize_grid_velocity_manager()
+OperatorCoupled<dim, Number>::initialize_structure_coupling_manager()
 {
-  grid_velocity_manager = std::make_shared<GridVelocityManager<dim, Number>>();
+  structure_coupling_manager = std::make_shared<StructureCouplingManager<dim, Number>>();
 
-  grid_velocity_manager->initialize(*matrix_free,
+  structure_coupling_manager->initialize(*matrix_free,
                                     get_dof_index_velocity(),
                                     get_quad_index_velocity());
 }

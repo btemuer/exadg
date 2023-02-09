@@ -22,12 +22,12 @@
 #ifndef EXADG_DARCY_MOMENTUM_OPERATOR_H
 #define EXADG_DARCY_MOMENTUM_OPERATOR_H
 
+#include <exadg/darcy/spatial_discretization/operators/grid_convection_operator.h>
 #include <exadg/darcy/spatial_discretization/operators/permeability_operator.h>
+#include <exadg/darcy/spatial_discretization/structure_coupling_manager.h>
 #include <exadg/incompressible_navier_stokes/spatial_discretization/operators/weak_boundary_conditions.h>
 #include <exadg/operators/mass_kernel.h>
 #include <exadg/operators/operator_base.h>
-#include <exadg/darcy/spatial_discretization/grid_velocity_manager.h>
-#include <exadg/darcy/spatial_discretization/operators/grid_convection_operator.h>
 
 namespace ExaDG
 {
@@ -72,10 +72,10 @@ public:
   using value_type = Number;
 
   void
-  initialize(dealii::MatrixFree<dim, Number> const &           matrix_free,
-             dealii::AffineConstraints<Number> const &         affine_constraints,
-             MomentumOperatorData<dim> const &                 data,
-             std::shared_ptr<GridVelocityManager<dim, Number>> grid_velocity_manager_in);
+  initialize(dealii::MatrixFree<dim, Number> const &                matrix_free_in,
+             dealii::AffineConstraints<Number> const &              affine_constraints_in,
+             MomentumOperatorData<dim> const &                      data_in,
+             std::shared_ptr<StructureCouplingManager<dim, Number>> structure_coupling_manager_in);
 
   MomentumOperatorData<dim> const &
   get_data() const;
@@ -141,7 +141,7 @@ private:
   std::shared_ptr<Operators::PermeabilityKernel<dim, Number>>   permeability_kernel;
   std::shared_ptr<Operators::GridConvectionKernel<dim, Number>> grid_convection_kernel;
 
-  std::shared_ptr<GridVelocityManager<dim, Number>> grid_velocity_manager;
+  std::shared_ptr<StructureCouplingManager<dim, Number>> structure_coupling_manager;
 
   double scaling_factor_mass{1.0};
 

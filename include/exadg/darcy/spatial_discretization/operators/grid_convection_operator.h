@@ -93,27 +93,22 @@ public:
   inline DEAL_II_ALWAYS_INLINE //
     vector
     calculate_flux(vector const & velocity_value_m,
-                   vector const & velocity_value_P,
+                   vector const & velocity_value_p,
                    vector const & grid_velocity_value_m,
                    vector const & normal_m)
   {
-    vector grid_velocity_value  = grid_velocity_value_m;
-    scalar normal_grid_velocity = grid_velocity_value * normal_m;
+    vector const grid_velocity_value  = grid_velocity_value_m;
+    scalar const normal_grid_velocity = grid_velocity_value * normal_m;
 
-    // vector average_velocity = 0.5 * (velocity_value_m + velocity_value_P);
-    vector velocity_jump = velocity_value_m - velocity_value_P;
+    vector const average_velocity = 0.5 * (velocity_value_m + velocity_value_p);
+    vector const velocity_jump    = velocity_value_m - velocity_value_p;
 
-    vector flux = 0.5 * velocity_jump *
-                  (data.upwind_factor * std::abs(normal_grid_velocity) - normal_grid_velocity);
-
-    return flux;
+    return normal_grid_velocity * (average_velocity - velocity_value_m) +
+           0.5 * data.upwind_factor * std::abs(normal_grid_velocity) * velocity_jump;
   }
 
 private:
   GridConvectionKernelData data;
-
-  std::shared_ptr<IntegratorCell> integrator_grid_velocity;
-  std::shared_ptr<IntegratorFace> integrator_grid_velocity_face;
 };
 
 } // namespace Operators
