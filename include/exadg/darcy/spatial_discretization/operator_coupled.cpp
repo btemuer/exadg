@@ -760,10 +760,10 @@ OperatorCoupled<dim, Number>::update_after_grid_motion()
 
 template<int dim, typename Number>
 void
-OperatorCoupled<dim, Number>::set_grid_velocity(VectorType const & disp_grid_in,
-                                                VectorType const & vel_grid_in)
+OperatorCoupled<dim, Number>::set_grid_coordinates_and_velocity(VectorType const & grid_coordinates,
+                                                                VectorType const & grid_velocity)
 {
-  structure_coupling_manager->set_grid_velocity(disp_grid_in, vel_grid_in);
+  structure_coupling_manager->set_grid_coordinates_and_velocity(grid_coordinates, grid_velocity);
 }
 
 template<int dim, typename Number>
@@ -855,11 +855,12 @@ template<int dim, typename Number>
 void
 OperatorCoupled<dim, Number>::initialize_structure_coupling_manager()
 {
-  structure_coupling_manager = std::make_shared<StructureCouplingManager<dim, Number>>();
-
-  structure_coupling_manager->initialize(*matrix_free,
-                                    get_dof_index_velocity(),
-                                    get_quad_index_velocity());
+  structure_coupling_manager =
+    std::make_shared<StructureCouplingManager<dim, Number>>(*matrix_free,
+                                                            get_dof_index_velocity(),
+                                                            get_quad_index_velocity(),
+                                                            *grid->get_mapping(),
+                                                            field_functions->porosity_field);
 }
 
 template<int dim, typename Number>

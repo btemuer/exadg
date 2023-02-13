@@ -99,7 +99,6 @@ MomentumOperator<dim, Number>::reinit_cell(unsigned int const cell) const
 
   if(operator_data.ale)
   {
-    structure_coupling_manager->reinit_gather_evaluate_displacement_cell(cell);
     structure_coupling_manager->reinit_gather_evaluate_velocity_cell(cell);
   }
 }
@@ -112,7 +111,6 @@ MomentumOperator<dim, Number>::reinit_face(unsigned int const face) const
 
   if(operator_data.ale)
   {
-    structure_coupling_manager->reinit_gather_evaluate_displacement_face(face);
     structure_coupling_manager->reinit_gather_evaluate_velocity_face(face);
   }
 }
@@ -125,7 +123,6 @@ MomentumOperator<dim, Number>::reinit_boundary_face(unsigned int const face) con
 
   if(operator_data.ale)
   {
-    structure_coupling_manager->reinit_gather_evaluate_displacement_face(face);
     structure_coupling_manager->reinit_gather_evaluate_velocity_face(face);
   }
 }

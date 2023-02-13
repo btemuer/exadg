@@ -288,7 +288,8 @@ public:
    * Sets the grid velocity.
    */
   void
-  set_grid_velocity(VectorType const & disp_grid_in, VectorType const & vel_grid_in);
+  set_grid_coordinates_and_velocity(VectorType const & grid_coordinates,
+                                    VectorType const & grid_velocity);
 
 private:
   void

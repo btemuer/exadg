@@ -94,8 +94,6 @@ public:
     return -fac * velocity_value;
   }
 
-
-
 private:
   mutable DivergenceKernelData<dim> data;
 };
@@ -163,7 +161,12 @@ public:
 private:
   template<typename Integrator>
   scalar
-  calculate_porosity(bool const is_face, Integrator const & integrator, unsigned int const q) const;
+  get_porosity(bool const is_face, Integrator const & integrator, unsigned int const q) const;
+
+  template<typename GetIterator>
+  void
+  reinit_gather_evaluate_porosity(GetIterator const & get_iterator,
+                                  unsigned int const  n_active_entries) const;
 
   void
   cell_loop_hom_operator(dealii::MatrixFree<dim, Number> const & matrix_free,

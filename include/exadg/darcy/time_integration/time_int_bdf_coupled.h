@@ -161,6 +161,7 @@ private:
   VectorType              grid_velocity;
   std::vector<VectorType> vec_grid_coordinates;
   VectorType              grid_coordinates_np;
+  VectorType              grid_displacements_np;
 };
 
 } // namespace Darcy

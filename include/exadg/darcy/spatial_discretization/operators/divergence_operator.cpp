@@ -111,14 +111,18 @@ DivergenceOperator<dim, Number>::cell_loop_hom_operator(
     pressure.reinit(cell);
     velocity.reinit(cell);
 
-    velocity.gather_evaluate(src, dealii::EvaluationFlags::values);
+    if(data.ale)
+      reinit_gather_evaluate_porosity(
+        [&matrix_free, &cell](unsigned int const v) {
+          return matrix_free.get_cell_iterator(cell, v);
+        },
+        matrix_free.n_active_entries_per_cell_batch(cell));
 
-    if (data.ale)
-      structure_coupling_manager->reinit_gather_evaluate_displacement_cell(cell);
+    velocity.gather_evaluate(src, dealii::EvaluationFlags::values);
 
     for(unsigned int q = 0; q < velocity.n_q_points; ++q)
     {
-      scalar const porosity = calculate_porosity(false, velocity, q);
+      scalar const porosity = get_porosity(false, velocity, q);
 
       pressure.submit_gradient(kernel.get_volume_flux(velocity.get_value(q), porosity), q);
     }
@@ -146,12 +150,17 @@ DivergenceOperator<dim, Number>::cell_loop_inhom_operator(
     {
       pressure.reinit(cell);
 
-      structure_coupling_manager->reinit_gather_evaluate_displacement_cell(cell);
+      reinit_gather_evaluate_porosity(
+        [&matrix_free, &cell](unsigned int const v) {
+          return matrix_free.get_cell_iterator(cell, v);
+        },
+        matrix_free.n_active_entries_per_cell_batch(cell));
+
       structure_coupling_manager->reinit_gather_evaluate_velocity_cell(cell);
 
       for(unsigned int q = 0; q < pressure.n_q_points; ++q)
       {
-        scalar const porosity = calculate_porosity(false, pressure, q);
+        scalar const porosity = get_porosity(false, pressure, q);
 
         pressure.submit_gradient(
           kernel.get_volume_flux(structure_coupling_manager->get_grid_velocity(false, q),
@@ -188,15 +197,19 @@ DivergenceOperator<dim, Number>::face_loop_hom_operator(
     velocity_m.gather_evaluate(src, dealii::EvaluationFlags::values);
     velocity_p.gather_evaluate(src, dealii::EvaluationFlags::values);
 
-    if (data.ale)
-      structure_coupling_manager->reinit_gather_evaluate_displacement_face(face);
+    if(data.ale)
+      reinit_gather_evaluate_porosity(
+        [&matrix_free, &face](unsigned int const v) {
+          return matrix_free.get_face_iterator(face, v);
+        },
+        matrix_free.n_active_entries_per_face_batch(face));
 
     for(unsigned int q = 0; q < velocity_m.n_q_points; ++q)
     {
       vector value_m = velocity_m.get_value(q);
       vector value_p = velocity_p.get_value(q);
 
-      scalar const porosity = calculate_porosity(true, velocity_m, q);
+      scalar const porosity = get_porosity(true, velocity_m, q);
 
       vector const flux = kernel.calculate_flux(value_m, value_p, porosity);
 
@@ -233,14 +246,19 @@ DivergenceOperator<dim, Number>::face_loop_inhom_operator(
       pressure_m.reinit(face);
       pressure_p.reinit(face);
 
-      structure_coupling_manager->reinit_gather_evaluate_displacement_face(face);
+      reinit_gather_evaluate_porosity(
+        [&matrix_free, &face](unsigned int const v) {
+          return matrix_free.get_face_iterator(face, v);
+        },
+        matrix_free.n_active_entries_per_face_batch(face));
+
       structure_coupling_manager->reinit_gather_evaluate_velocity_face(face);
 
       for(unsigned int q = 0; q < pressure_m.n_q_points; ++q)
       {
         vector const grid_velocity_value = structure_coupling_manager->get_grid_velocity(true, q);
 
-        scalar const porosity = calculate_porosity(true, pressure_m, q);
+        scalar const porosity = get_porosity(true, pressure_m, q);
 
         vector const flux = (1.0 - porosity) * grid_velocity_value;
 
@@ -273,13 +291,17 @@ DivergenceOperator<dim, Number>::boundary_face_loop_hom_operator(
     pressure.reinit(face);
     velocity.reinit(face);
 
-    if (data.ale)
-      structure_coupling_manager->reinit_gather_evaluate_displacement_face(face);
-
     velocity.gather_evaluate(src, dealii::EvaluationFlags::values);
 
     IncNS::BoundaryTypeU const boundary_type =
       data.bc->get_boundary_type(matrix_free.get_boundary_id(face));
+
+    if(data.ale)
+      reinit_gather_evaluate_porosity(
+        [&matrix_free, &face](unsigned int const v) {
+          return matrix_free.get_face_iterator(face, v);
+        },
+        matrix_free.n_active_entries_per_face_batch(face));
 
     for(unsigned int q = 0; q < pressure.n_q_points; ++q)
     {
@@ -300,7 +322,7 @@ DivergenceOperator<dim, Number>::boundary_face_loop_hom_operator(
           return value_m;
       });
 
-      scalar const porosity = calculate_porosity(true, pressure, q);
+      scalar const porosity = get_porosity(true, pressure, q);
 
       vector const flux   = kernel.calculate_flux(value_m, value_p, porosity);
       vector const normal = velocity.get_normal_vector(q);
@@ -328,17 +350,21 @@ DivergenceOperator<dim, Number>::boundary_face_loop_inhom_operator(
     pressure.reinit(face);
     velocity.reinit(face);
 
-    if(data.ale)
-      structure_coupling_manager->reinit_gather_evaluate_displacement_face(face);
-
     IncNS::BoundaryTypeU const boundary_type =
       data.bc->get_boundary_type(matrix_free.get_boundary_id(face));
+
+    if(data.ale)
+      reinit_gather_evaluate_porosity(
+        [&matrix_free, &face](unsigned int const v) {
+          return matrix_free.get_face_iterator(face, v);
+        },
+        matrix_free.n_active_entries_per_face_batch(face));
 
     for(unsigned int q = 0; q < velocity.n_q_points; ++q)
     {
       vector const value_m;
 
-      scalar const porosity = calculate_porosity(true, velocity, q);
+      scalar const porosity = get_porosity(true, velocity, q);
 
       vector const value_p = std::invoke([&]() {
         if(data.use_boundary_data == true)
@@ -372,16 +398,30 @@ DivergenceOperator<dim, Number>::boundary_face_loop_inhom_operator(
 }
 
 template<int dim, typename Number>
+template<typename GetIterator>
+void
+DivergenceOperator<dim, Number>::reinit_gather_evaluate_porosity(
+  GetIterator const & get_iterator,
+  unsigned int const  n_active_entries) const
+{
+  using IteratorContainer = std::vector<std::result_of_t<GetIterator(unsigned int)>>;
+
+  IteratorContainer iterators(n_active_entries);
+  for(unsigned int v = 0; v < n_active_entries; ++v)
+    iterators[v] = get_iterator(v);
+
+  structure_coupling_manager->reinit_gather_evaluate_porosity(iterators);
+}
+
+template<int dim, typename Number>
 template<typename Integrator>
 typename DivergenceOperator<dim, Number>::scalar
-DivergenceOperator<dim, Number>::calculate_porosity(bool const         is_face,
-                                                    Integrator const & integrator,
-                                                    unsigned int const q) const
+DivergenceOperator<dim, Number>::get_porosity(bool const         is_face,
+                                              Integrator const & integrator,
+                                              unsigned int const q) const
 {
   if(data.ale)
-    return structure_coupling_manager->compute_porosity(is_face,
-                                                        data.kernel_data.initial_porosity_field,
-                                                        q);
+    return structure_coupling_manager->get_porosity(is_face, q);
   else
     return FunctionEvaluator<0, dim, Number>::value(data.kernel_data.initial_porosity_field,
                                                     integrator.quadrature_point(q),
