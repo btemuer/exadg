@@ -139,10 +139,7 @@ MomentumOperator<dim, Number>::do_cell_integral(IntegratorCell & integrator) con
     scalar const viscosity =
       dealii::make_vectorized_array<Number>(operator_data.permeability_kernel_data.viscosity);
 
-    scalar porosity = FunctionEvaluator<0, dim, Number>::value(
-      operator_data.permeability_kernel_data.initial_porosity_field,
-      this->integrator->quadrature_point(q),
-      0.0);
+    scalar const porosity = get_porosity(q);
 
     dyadic const inverse_permeability = FunctionEvaluator<2, dim, Number>::value_symmetric(
       operator_data.permeability_kernel_data.inverse_permeability_field,
@@ -291,6 +288,32 @@ MomentumOperator<dim, Number>::rhs_add(VectorType & rhs, double const evaluation
   rhs.add(-1.0, tmp);
 }
 
+template<int dim, typename Number>
+void
+MomentumOperator<dim, Number>::cell_loop_hom_operator(
+  dealii::MatrixFree<dim, Number> const &       matrix_free,
+  VectorType &                                  dst,
+  VectorType const &                            src,
+  std::pair<unsigned int, unsigned int> const & range) const
+{
+  for(auto cell = range.first; cell < range.second; ++cell)
+  {
+    this->reinit_cell(cell);
+
+    if(operator_data.ale)
+      reinit_gather_evaluate_porosity(
+        [&matrix_free, &cell](unsigned int const v) {
+          return matrix_free.get_face_iterator(cell, v);
+        },
+        matrix_free.n_active_entries_per_face_batch(cell));
+
+    this->integrator->gather_evaluate(src, this->integrator_flags.cell_evaluate);
+
+    this->do_cell_integral(*this->integrator);
+
+    this->integrator->integrate_scatter(this->integrator_flags.cell_integrate, dst);
+  }
+}
 
 template<int dim, typename Number>
 void
@@ -309,6 +332,12 @@ MomentumOperator<dim, Number>::cell_loop_inhom_operator(
     {
       this->reinit_cell(cell);
 
+      reinit_gather_evaluate_porosity(
+        [&matrix_free, &cell](unsigned int const v) {
+          return matrix_free.get_face_iterator(cell, v);
+        },
+        matrix_free.n_active_entries_per_face_batch(cell));
+
       for(unsigned int q = 0; q < this->integrator->n_q_points; ++q)
       {
         vector const grid_velocity_value = structure_coupling_manager->get_grid_velocity(false, q);
@@ -316,10 +345,7 @@ MomentumOperator<dim, Number>::cell_loop_inhom_operator(
         scalar const viscosity =
           dealii::make_vectorized_array<Number>(operator_data.permeability_kernel_data.viscosity);
 
-        scalar porosity = FunctionEvaluator<0, dim, Number>::value(
-          operator_data.permeability_kernel_data.initial_porosity_field,
-          this->integrator->quadrature_point(q),
-          0.0);
+        scalar const porosity = get_porosity(q);
 
         dyadic const inverse_permeability = FunctionEvaluator<2, dim, Number>::value_symmetric(
           operator_data.permeability_kernel_data.inverse_permeability_field,
@@ -335,6 +361,35 @@ MomentumOperator<dim, Number>::cell_loop_inhom_operator(
       this->integrator->integrate_scatter(this->integrator_flags.cell_integrate, dst);
     }
   }
+}
+
+template<int dim, typename Number>
+template<typename GetIterator>
+void
+MomentumOperator<dim, Number>::reinit_gather_evaluate_porosity(
+  GetIterator const & get_iterator,
+  unsigned int const  n_active_entries) const
+{
+  using IteratorContainer = std::vector<std::result_of_t<GetIterator(unsigned int)>>;
+
+  IteratorContainer iterators(n_active_entries);
+  for(unsigned int v = 0; v < n_active_entries; ++v)
+    iterators[v] = get_iterator(v);
+
+  structure_coupling_manager->reinit_gather_evaluate_porosity(iterators);
+}
+
+template<int dim, typename Number>
+typename MomentumOperator<dim, Number>::scalar
+MomentumOperator<dim, Number>::get_porosity(unsigned int const q) const
+{
+  if(operator_data.ale)
+    return structure_coupling_manager->get_porosity(false, q);
+  else
+    return FunctionEvaluator<0, dim, Number>::value(
+      operator_data.permeability_kernel_data.initial_porosity_field,
+      this->integrator->quadrature_point(q),
+      0.0);
 }
 
 template<int dim, typename Number>

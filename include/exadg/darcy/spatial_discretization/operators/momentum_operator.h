@@ -116,11 +116,25 @@ private:
                        const OperatorType &               operator_type,
                        const dealii::types::boundary_id & boundary_id) const override;
 
+  template<typename GetIterator>
+  void
+  reinit_gather_evaluate_porosity(GetIterator const & get_iterator,
+                                  unsigned int const  n_active_entries) const;
+
+  scalar
+  get_porosity(unsigned int const q) const;
+
   void
   cell_loop_inhom_operator(dealii::MatrixFree<dim, Number> const &       matrix_free,
                            VectorType &                                  dst,
                            VectorType const &                            src,
-                           std::pair<unsigned int, unsigned int> const & cell_range) const;
+                           std::pair<unsigned int, unsigned int> const & range) const;
+
+  void
+  cell_loop_hom_operator(dealii::MatrixFree<dim, Number> const &       matrix_free,
+                         VectorType &                                  dst,
+                         VectorType const &                            src,
+                         std::pair<unsigned int, unsigned int> const & range) const;
 
   void
   face_loop_empty(dealii::MatrixFree<dim, Number> const & matrix_free,
