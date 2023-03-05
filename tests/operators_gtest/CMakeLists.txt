@@ -30,6 +30,7 @@ TARGETNAME(TARGET_NAME ${CMAKE_CURRENT_SOURCE_DIR})
 ADD_EXECUTABLE(
     ${TARGET_NAME}
     variable_coefficients.cc
+    coupled_inverse_mass_operator.cc
 )
 
 DEAL_II_SETUP_TARGET(${TARGET_NAME})
