@@ -66,6 +66,12 @@ private:
     IP::calculate_penalty_parameter<dim, Number>(penalty_parameters, matrix_free, dof_index);
   }
 
+  void
+  set_coefficients()
+  {
+    coefficients.set_coefficient([]() {});
+  }
+
   LaplaceKernelData data{};
   unsigned int      degree{1};
 

@@ -83,6 +83,20 @@ public:
     fill(constant_coefficient);
   }
 
+  template<typename T>
+  void
+  set_cofficients(T const & coefficient_function)
+  {
+    unsigned int const n_cells         = coefficients_cell.size(0);
+    unsigned int const n_cell_q_points = coefficients_cell.size(1);
+
+    Assert(n_cells > 0 && n_cell_q_points > 0, "Variable coefficients table is not initialized.");
+
+    for(unsigned int cell = 0; cell < n_cells; ++cell)
+      for(unsigned int q = 0; q < n_cell_q_points; ++q)
+        set_coefficient_cell(cell, q, coefficient_function(cell, q));
+  }
+
   coefficient_type
   get_coefficient_cell(unsigned int const cell, unsigned int const q) const
   {
