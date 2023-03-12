@@ -28,9 +28,23 @@
 
 namespace ExaDG
 {
+template<int dim, typename Number, int n_components = 1, bool coupling_coefficient = false>
 struct LaplaceKernelData
 {
+private:
+  using scalar = dealii::VectorizedArray<Number>;
+
+  static constexpr unsigned int coefficient_rank =
+    (coupling_coefficient) ? ((n_components == 1) ? 2 : 4) : 0;
+
+  using Coefficient = dealii::Tensor<coefficient_rank, dim, scalar>;
+
+  using CoefficientFunction = std::function<Coefficient(unsigned int, unsigned int)>;
+
+public:
   double IP_factor{1.0};
+
+  CoefficientFunction coefficient_function{};
 };
 
 template<int dim, typename Number, int n_components = 1, bool coupling_coefficient = false>
@@ -47,15 +61,20 @@ private:
   using Coefficient = dealii::Tensor<coefficient_rank, dim, scalar>;
 
 public:
+  template<typename F>
   void
-  reinit(dealii::MatrixFree<dim, Number> const & matrix_free,
-         LaplaceKernelData const &               data_in,
-         unsigned int const                      dof_index,
-         unsigned int const                      quad_index)
+  reinit(dealii::MatrixFree<dim, Number> const &                                    matrix_free,
+         LaplaceKernelData<dim, Number, n_components, coupling_coefficient> const & data_in,
+         unsigned int const                                                         dof_index,
+         unsigned int const                                                         quad_index)
   {
     data   = data_in;
     degree = matrix_free.get_dof_handler(dof_index).get_fe().degree;
+
+    calculate_penalty_parameter(matrix_free, dof_index);
+
     coefficients.initialize(matrix_free, quad_index, 0.0);
+    set_cofficients(*(data.coefficient_function));
   }
 
 private:
@@ -66,20 +85,23 @@ private:
     IP::calculate_penalty_parameter<dim, Number>(penalty_parameters, matrix_free, dof_index);
   }
 
+  template<typename F>
   void
-  set_coefficients()
+  set_coefficients(F coefficient_function)
   {
-    coefficients.set_coefficient([]() {});
+    coefficients.set_cofficients(coefficient_function);
   }
 
-  LaplaceKernelData data{};
-  unsigned int      degree{1};
+  LaplaceKernelData<dim, Number, n_components, coupling_coefficient> data{};
+
+  unsigned int degree{1};
 
   mutable scalar tau{0.0};
 
   dealii::AlignedVector<scalar>             penalty_parameters{};
   mutable VariableCoefficients<Coefficient> coefficients{};
 };
+
 template<int dim, typename Number, int n_components, bool coupling_coefficient>
 class GeneralizedLaplaceOperator : public OperatorBase<dim, Number, n_components>
 {

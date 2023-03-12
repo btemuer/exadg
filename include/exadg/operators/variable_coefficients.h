@@ -72,29 +72,22 @@ template<typename coefficient_type>
 class VariableCoefficients
 {
 public:
-  template<int dim, typename Number>
+  template<int dim, typename Number, typename T = coefficient_type>
   void
   initialize(dealii::MatrixFree<dim, Number> const & matrix_free,
              unsigned int const                      quad_index,
-             coefficient_type const &                constant_coefficient)
+             T const &                               coefficient)
   {
     reinit(matrix_free, quad_index);
 
-    fill(constant_coefficient);
+    fill(coefficient);
   }
 
-  template<typename T>
+  template<typename F>
   void
-  set_cofficients(T const & coefficient_function)
+  set_cofficients(F const & coefficient_function)
   {
-    unsigned int const n_cells         = coefficients_cell.size(0);
-    unsigned int const n_cell_q_points = coefficients_cell.size(1);
-
-    Assert(n_cells > 0 && n_cell_q_points > 0, "Variable coefficients table is not initialized.");
-
-    for(unsigned int cell = 0; cell < n_cells; ++cell)
-      for(unsigned int q = 0; q < n_cell_q_points; ++q)
-        set_coefficient_cell(cell, q, coefficient_function(cell, q));
+    fill(coefficient_function);
   }
 
   coefficient_type
@@ -174,6 +167,24 @@ private:
     // // cell-based face loops
     // coefficients_face_cell_based.reinit(matrix_free.n_cell_batches()*2*dim,
     // matrix_free.get_n_q_points_face(quad_index));
+  }
+
+  void
+  fill(std::function<coefficient_type(unsigned int, unsigned int)> const & coefficient_function)
+  {
+    unsigned int const n_cells = coefficients_cell.size(0);
+    unsigned int const n_faces = coefficients_face.size(0);
+
+    unsigned int const n_cell_q_points = coefficients_cell.size(1);
+    unsigned int const n_face_q_points = coefficients_face.size(1);
+
+    for(unsigned int cell = 0; cell < n_cells; ++cell)
+      for(unsigned int q = 0; q < n_cell_q_points; ++q)
+        set_coefficient_cell(cell, q, coefficient_function(cell, q));
+
+    for(unsigned int face = 0; face < n_faces; ++face)
+      for(unsigned int q = 0; q < n_face_q_points; ++q)
+        set_coefficient_face(face, q, coefficient_function(face, q));
   }
 
   void
