@@ -118,4 +118,14 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
   // call do_face_int_integral() with the reverse order and set revert_int_ext to true
   do_face_int_integral(integrator_p, integrator_m, true);
 }
+
+template<int dim, typename Number, int n_components, bool coupling_coefficient>
+void
+GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_boundary_integral(
+  IntegratorFace &                   integrator,
+  const OperatorType &               operator_type,
+  const dealii::types::boundary_id & boundary_id) const
+{
+  // TODO
+}
 } // namespace ExaDG
