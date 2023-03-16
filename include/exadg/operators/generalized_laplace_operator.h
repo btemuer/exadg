@@ -28,6 +28,8 @@
 
 namespace ExaDG
 {
+namespace Operators
+{
 template<int dim, typename Number, int n_components = 1, bool coupling_coefficient = false>
 struct GeneralizedLaplaceKernelData
 {
@@ -172,19 +174,87 @@ private:
   dealii::AlignedVector<scalar>             penalty_parameters{};
   mutable VariableCoefficients<Coefficient> coefficients{};
 };
+} // namespace Operators
 
-template<int dim, typename Number, int n_components, bool coupling_coefficient>
+template<int dim, typename Number, int n_components = 1, bool coupling_coefficient = false>
+struct GeneralizedLaplaceOperatorData : public OperatorBaseData
+{
+  Operators::GeneralizedLaplaceKernelData<dim, Number, n_components, coupling_coefficient>
+    kernel_data;
+
+  // std::shared_ptr<BoundaryDescriptor<dim> const> bc;
+};
+
+template<int dim, typename Number, int n_components = 1, bool coupling_coefficient = false>
 class GeneralizedLaplaceOperator : public OperatorBase<dim, Number, n_components>
 {
 private:
+  using scalar = dealii::VectorizedArray<Number>;
+  using vector = dealii::Tensor<1, dim, scalar>;
+
+  static constexpr unsigned int solution_rank = (n_components > 1) ? 1 : 0;
+  static constexpr unsigned int coefficient_rank =
+    (coupling_coefficient) ? ((n_components > 1) ? 4 : 2) : 0;
+
+  using Solution         = dealii::Tensor<solution_rank, dim, scalar>;
+  using SolutionGradient = dealii::Tensor<solution_rank + 1, dim, scalar>;
+
+  using Coefficient = dealii::Tensor<coefficient_rank, dim, scalar>;
+
   using Base = OperatorBase<dim, Number, n_components>;
 
+  using Range          = typename Base::Range;
+  using VectorType     = typename Base::VectorType;
   using IntegratorCell = typename Base::IntegratorCell;
   using IntegratorFace = typename Base::IntegratorFace;
 
-  using VectorType = typename Base::VectorType;
-
 public:
+  void
+  initialize(
+    dealii::MatrixFree<dim, Number> const &   matrix_free,
+    dealii::AffineConstraints<Number> const & affine_constraints,
+    GeneralizedLaplaceOperatorData<dim, Number, n_components, coupling_coefficient> const & data,
+    std::shared_ptr<
+      Operators::GeneralizedLaplaceKernel<dim, Number, n_components, coupling_coefficient>>
+      generalized_laplace_kernel);
+
+  void
+  update();
+
+private:
+  void
+  reinit_face(unsigned int const face) const;
+
+  void
+  reinit_boundary_face(unsigned int const face) const;
+
+  void
+  reinit_face_cell_based(unsigned int const               cell,
+                         unsigned int const               face,
+                         dealii::types::boundary_id const boundary_id) const;
+
+  void
+  do_cell_integral(IntegratorCell & integrator) const;
+
+  void
+  do_face_integral(IntegratorFace & integrator_m, IntegratorFace & integrator_p) const;
+
+  void
+  do_face_int_integral(IntegratorFace & integrator_m, IntegratorFace & integrator_p) const;
+
+  void
+  do_face_ext_integral(IntegratorFace & integrator_m, IntegratorFace & integrator_p) const;
+
+  void
+  do_boundary_integral(IntegratorFace &                   integrator,
+                       OperatorType const &               operator_type,
+                       dealii::types::boundary_id const & boundary_id) const;
+
+  GeneralizedLaplaceOperatorData<dim, Number, n_components, coupling_coefficient> operator_data;
+
+  std::shared_ptr<
+    Operators::GeneralizedLaplaceKernel<dim, Number, n_components, coupling_coefficient>>
+    kernel;
 };
 } // namespace ExaDG
 #endif /* INCLUDE_EXADG_OPERATORS_GENERALIZED_LAPLACE_OPERATOR_H_ */
