@@ -182,6 +182,7 @@ struct GeneralizedLaplaceOperatorData : public OperatorBaseData
   Operators::GeneralizedLaplaceKernelData<dim, Number, n_components, coupling_coefficient>
     kernel_data;
 
+  // TODO
   // std::shared_ptr<BoundaryDescriptor<dim> const> bc;
 };
 
