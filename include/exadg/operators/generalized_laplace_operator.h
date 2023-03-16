@@ -131,6 +131,23 @@ public:
     return -0.5 * coefficient * jump_tensor;
   }
 
+  inline DEAL_II_ALWAYS_INLINE //
+    Solution
+    get_value_flux(Solution const &         value_m,
+                   Solution const &         value_p,
+                   SolutionGradient const & gradient_m,
+                   SolutionGradient const & gradient_p,
+                   vector const &           normal,
+                   Coefficient const &      coefficient)
+  {
+    auto const jump_value  = value_m - value_p;
+    auto const jump_tensor = outer_product(jump_value, normal);
+
+    auto const average_gradient = 0.5 * (gradient_m + gradient_p);
+
+    return -(coefficient * (average_gradient + tau * jump_tensor)) * normal;
+  }
+
 private:
   void
   calculate_penalty_parameter(dealii::MatrixFree<dim, Number> const & matrix_free,
