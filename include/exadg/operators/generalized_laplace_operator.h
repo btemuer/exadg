@@ -29,7 +29,7 @@
 namespace ExaDG
 {
 template<int dim, typename Number, int n_components = 1, bool coupling_coefficient = false>
-struct LaplaceKernelData
+struct GeneralizedLaplaceKernelData
 {
 private:
   using scalar = dealii::VectorizedArray<Number>;
@@ -64,7 +64,7 @@ public:
   template<typename F>
   void
   reinit(dealii::MatrixFree<dim, Number> const &                                    matrix_free,
-         LaplaceKernelData<dim, Number, n_components, coupling_coefficient> const & data_in,
+         GeneralizedLaplaceKernelData<dim, Number, n_components, coupling_coefficient> const & data_in,
          unsigned int const                                                         dof_index,
          unsigned int const                                                         quad_index)
   {
@@ -92,7 +92,7 @@ private:
     coefficients.set_cofficients(coefficient_function);
   }
 
-  LaplaceKernelData<dim, Number, n_components, coupling_coefficient> data{};
+  GeneralizedLaplaceKernelData<dim, Number, n_components, coupling_coefficient> data{};
 
   unsigned int degree{1};
 
