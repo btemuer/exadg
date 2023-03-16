@@ -58,12 +58,12 @@ private:
   using scalar = dealii::VectorizedArray<Number>;
   using vector = dealii::Tensor<1, dim, scalar>;
 
-  static constexpr unsigned int solution_rank = (n_components > 1) ? 1 : 0;
+  static constexpr unsigned int value_rank = (n_components > 1) ? 1 : 0;
   static constexpr unsigned int coefficient_rank =
     (coupling_coefficient) ? ((n_components > 1) ? 4 : 2) : 0;
 
-  using Solution         = dealii::Tensor<solution_rank, dim, scalar>;
-  using SolutionGradient = dealii::Tensor<solution_rank + 1, dim, scalar>;
+  using Value    = dealii::Tensor<value_rank, dim, scalar>;
+  using Gradient = dealii::Tensor<value_rank + 1, dim, scalar>;
 
   using Coefficient = dealii::Tensor<coefficient_rank, dim, scalar>;
 
@@ -116,16 +116,16 @@ public:
   }
 
   static inline DEAL_II_ALWAYS_INLINE //
-    SolutionGradient
-    get_volume_flux(SolutionGradient const & gradient, Coefficient const & coefficient)
+    Gradient
+    get_volume_flux(Gradient const & gradient, Coefficient const & coefficient)
   {
     return coefficient * gradient;
   }
 
   static inline DEAL_II_ALWAYS_INLINE //
-    SolutionGradient
-    get_gradient_flux(Solution const &    value_m,
-                      Solution const &    value_p,
+    Gradient
+    get_gradient_flux(Value const &       value_m,
+                      Value const &       value_p,
                       vector const &      normal,
                       Coefficient const & coefficient)
   {
@@ -136,13 +136,13 @@ public:
   }
 
   inline DEAL_II_ALWAYS_INLINE //
-    Solution
-    get_value_flux(Solution const &         value_m,
-                   Solution const &         value_p,
-                   SolutionGradient const & gradient_m,
-                   SolutionGradient const & gradient_p,
-                   vector const &           normal,
-                   Coefficient const &      coefficient)
+    Value
+    get_value_flux(Value const &       value_m,
+                   Value const &       value_p,
+                   Gradient const &    gradient_m,
+                   Gradient const &    gradient_p,
+                   vector const &      normal,
+                   Coefficient const & coefficient)
   {
     auto const jump_value  = value_m - value_p;
     auto const jump_tensor = outer_product(jump_value, normal);
@@ -195,12 +195,12 @@ private:
   using scalar = dealii::VectorizedArray<Number>;
   using vector = dealii::Tensor<1, dim, scalar>;
 
-  static constexpr unsigned int solution_rank = (n_components > 1) ? 1 : 0;
+  static constexpr unsigned int value_rank = (n_components > 1) ? 1 : 0;
   static constexpr unsigned int coefficient_rank =
     (coupling_coefficient) ? ((n_components > 1) ? 4 : 2) : 0;
 
-  using Solution         = dealii::Tensor<solution_rank, dim, scalar>;
-  using SolutionGradient = dealii::Tensor<solution_rank + 1, dim, scalar>;
+  using Value    = dealii::Tensor<value_rank, dim, scalar>;
+  using Gradient = dealii::Tensor<value_rank + 1, dim, scalar>;
 
   using Coefficient = dealii::Tensor<coefficient_rank, dim, scalar>;
 

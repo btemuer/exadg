@@ -30,11 +30,11 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
 {
   for(unsigned int q = 0; q < integrator.n_q; ++q)
   {
-    unsigned int const     cell     = integrator.get_current_cell_index();
-    SolutionGradient const gradient = integrator.get_gradient(q);
+    unsigned int const cell     = integrator.get_current_cell_index();
+    Gradient const     gradient = integrator.get_gradient(q);
 
-    Coefficient const      coefficient = kernel->get_coefficient_cell(cell, q);
-    SolutionGradient const volume_flux = kernel->get_volume_flux(gradient, coefficient);
+    Coefficient const coefficient = kernel->get_coefficient_cell(cell, q);
+    Gradient const    volume_flux = kernel->get_volume_flux(gradient, coefficient);
 
     integrator.submit_gradient(volume_flux, q);
   }
@@ -50,20 +50,19 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
   {
     unsigned int const cell = integrator_m.get_current_cell_index();
 
-    Solution const value_m = integrator_m.get_value(q);
-    Solution const value_p = integrator_p.get_value(q);
+    Value const value_m = integrator_m.get_value(q);
+    Value const value_p = integrator_p.get_value(q);
 
-    SolutionGradient const gradient_m = integrator_m.get_gradient(q);
-    SolutionGradient const gradient_p = integrator_p.get_gradient(q);
+    Gradient const gradient_m = integrator_m.get_gradient(q);
+    Gradient const gradient_p = integrator_p.get_gradient(q);
 
     vector const normal = integrator_m.get_normal_vector(q);
 
     Coefficient const coefficient = kernel->get_coefficient(cell, q);
 
-    SolutionGradient const gradient_flux =
-      kernel->get_gradient_flux(value_m, value_p, normal, coefficient);
+    Gradient const gradient_flux = kernel->get_gradient_flux(value_m, value_p, normal, coefficient);
 
-    Solution const value_flux =
+    Value const value_flux =
       kernel->get_value_flux(gradient_m, gradient_p, value_m, value_p, normal, coefficient);
 
     integrator_m.submit_gradient(gradient_flux, q);
