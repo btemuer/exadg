@@ -243,7 +243,9 @@ private:
   do_face_integral(IntegratorFace & integrator_m, IntegratorFace & integrator_p) const;
 
   void
-  do_face_int_integral(IntegratorFace & integrator_m, IntegratorFace & integrator_p) const;
+  do_face_int_integral(IntegratorFace & integrator_m,
+                       IntegratorFace & integrator_p,
+                       bool             revert_int_ext = false) const;
 
   void
   do_face_ext_integral(IntegratorFace & integrator_m, IntegratorFace & integrator_p) const;

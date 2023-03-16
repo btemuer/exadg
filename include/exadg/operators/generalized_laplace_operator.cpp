@@ -78,7 +78,8 @@ template<int dim, typename Number, int n_components, bool coupling_coefficient>
 void
 GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_face_int_integral(
   IntegratorFace & integrator_m,
-  IntegratorFace & integrator_p) const
+  IntegratorFace & integrator_p,
+  bool const       revert_int_ext) const
 {
   (void)integrator_p;
 
@@ -92,7 +93,8 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
     Gradient const gradient_m = integrator_m.get_gradient(q);
     Gradient const gradient_p; // set exterior gradients to zero
 
-    vector const normal_m = integrator_m.get_normal_vector(q);
+    vector const normal_m =
+      (revert_int_ext) ? -integrator_m.get_normal_vector(q) : integrator_m.get_normal_vector(q);
 
     Coefficient const coefficient = kernel->get_coefficient_face(face, q);
 
@@ -105,5 +107,15 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
     integrator_m.submit_gradient(gradient_flux, q);
     integrator_m.submit_value(value_flux, q);
   }
+}
+
+template<int dim, typename Number, int n_components, bool coupling_coefficient>
+void
+GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_face_ext_integral(
+  IntegratorFace & integrator_m,
+  IntegratorFace & integrator_p) const
+{
+  // call do_face_int_integral() with the reverse order and set revert_int_ext to true
+  do_face_int_integral(integrator_p, integrator_m, true);
 }
 } // namespace ExaDG
