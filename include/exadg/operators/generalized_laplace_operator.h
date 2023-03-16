@@ -77,6 +77,35 @@ public:
     coefficients.initialize(matrix_free, quad_index, data.coefficient_function);
   }
 
+  static IntegratorFlags
+  get_integrator_flags()
+  {
+    IntegratorFlags flags;
+
+    flags.cell_evaluate  = dealii::EvaluationFlags::gradients;
+    flags.cell_integrate = dealii::EvaluationFlags::gradients;
+
+    flags.face_evaluate  = dealii::EvaluationFlags::values | dealii::EvaluationFlags::gradients;
+    flags.face_integrate = dealii::EvaluationFlags::values | dealii::EvaluationFlags::gradients;
+  }
+
+  static MappingFlags
+  get_mapping_flags(bool const compute_interior_face_integrals,
+                    bool const compute_boundary_face_integrals)
+  {
+    MappingFlags flags;
+
+    flags.cells = dealii::update_JxW_values | dealii::update_gradients;
+    if(compute_interior_face_integrals)
+      flags.inner_faces =
+        dealii::update_JxW_values | dealii::update_gradients | dealii::update_normal_vectors;
+    if(compute_boundary_face_integrals)
+      flags.boundary_faces = dealii::update_JxW_values | dealii::update_gradients |
+                             dealii::update_normal_vectors | dealii::update_quadrature_points;
+
+    return flags;
+  }
+
 private:
   void
   calculate_penalty_parameter(dealii::MatrixFree<dim, Number> const & matrix_free,
