@@ -39,4 +39,38 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
     integrator.submit_gradient(volume_flux, q);
   }
 }
+
+template<int dim, typename Number, int n_components, bool coupling_coefficient>
+void
+GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_face_integral(
+  IntegratorFace & integrator_m,
+  IntegratorFace & integrator_p) const
+{
+  for(unsigned int q = 0; q < integrator_m.n_q_points; ++q)
+  {
+    unsigned int const cell = integrator_m.get_current_cell_index();
+
+    Solution const value_m = integrator_m.get_value(q);
+    Solution const value_p = integrator_p.get_value(q);
+
+    SolutionGradient const gradient_m = integrator_m.get_gradient(q);
+    SolutionGradient const gradient_p = integrator_p.get_gradient(q);
+
+    vector const normal = integrator_m.get_normal_vector(q);
+
+    Coefficient const coefficient = kernel->get_coefficient(cell, q);
+
+    SolutionGradient const gradient_flux =
+      kernel->get_gradient_flux(value_m, value_p, normal, coefficient);
+
+    Solution const value_flux =
+      kernel->get_value_flux(gradient_m, gradient_p, value_m, value_p, normal, coefficient);
+
+    integrator_m.submit_gradient(gradient_flux, q);
+    integrator_p.submit_gradient(gradient_flux, q);
+
+    integrator_m.submit_value(value_flux, q);
+    integrator_p.submit_value(-value_flux, q); // - sign since n⁺ = -n⁻
+  }
+}
 } // namespace ExaDG
