@@ -30,8 +30,11 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
 {
   for(unsigned int q = 0; q < integrator.n_q; ++q)
   {
-    Coefficient coefficient = kernel->get_coefficient_cell(integrator.get_current_cell_index(), q);
-    SolutionGradient volume_flux = kernel->get_volume_flux(integrator.get_gradient(q), coefficient);
+    unsigned int const     cell     = integrator.get_current_cell_index();
+    SolutionGradient const gradient = integrator.get_gradient(q);
+
+    Coefficient const      coefficient = kernel->get_coefficient_cell(cell, q);
+    SolutionGradient const volume_flux = kernel->get_volume_flux(gradient, coefficient);
 
     integrator.submit_gradient(volume_flux, q);
   }
