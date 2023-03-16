@@ -94,6 +94,8 @@ public:
 
     flags.face_evaluate  = dealii::EvaluationFlags::values | dealii::EvaluationFlags::gradients;
     flags.face_integrate = dealii::EvaluationFlags::values | dealii::EvaluationFlags::gradients;
+
+    return flags;
   }
 
   static MappingFlags
