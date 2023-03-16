@@ -32,10 +32,10 @@ template<int dim, typename Number, int n_components = 1, bool coupling_coefficie
 struct GeneralizedLaplaceKernelData
 {
 private:
-  using scalar = dealii::VectorizedArray<Number>;
-
   static constexpr unsigned int coefficient_rank =
-    (coupling_coefficient) ? ((n_components == 1) ? 2 : 4) : 0;
+    (coupling_coefficient) ? ((n_components > 1) ? 4 : 2) : 0;
+
+  using scalar = dealii::VectorizedArray<Number>;
 
   using Coefficient = dealii::Tensor<coefficient_rank, dim, scalar>;
 
@@ -55,8 +55,12 @@ private:
 
   using scalar = dealii::VectorizedArray<Number>;
 
+  static constexpr unsigned int solution_rank = (n_components > 1) ? 1 : 0;
   static constexpr unsigned int coefficient_rank =
-    (coupling_coefficient) ? ((n_components == 1) ? 2 : 4) : 0;
+    (coupling_coefficient) ? ((n_components > 1) ? 4 : 2) : 0;
+
+  using Solution         = dealii::Tensor<solution_rank, dim, scalar>;
+  using SolutionGradient = dealii::Tensor<solution_rank + 1, dim, scalar>;
 
   using Coefficient = dealii::Tensor<coefficient_rank, dim, scalar>;
 
@@ -104,6 +108,13 @@ public:
                              dealii::update_normal_vectors | dealii::update_quadrature_points;
 
     return flags;
+  }
+
+  inline DEAL_II_ALWAYS_INLINE //
+    SolutionGradient
+    get_volume_flux(SolutionGradient const & gradient, Coefficient const & coefficient) const
+  {
+    return coefficient * gradient;
   }
 
 private:
