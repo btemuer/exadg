@@ -56,14 +56,15 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
     Gradient const gradient_m = integrator_m.get_gradient(q);
     Gradient const gradient_p = integrator_p.get_gradient(q);
 
-    vector const normal = integrator_m.get_normal_vector(q);
+    vector const normal_m = integrator_m.get_normal_vector(q);
 
     Coefficient const coefficient = kernel->get_coefficient(cell, q);
 
-    Gradient const gradient_flux = kernel->get_gradient_flux(value_m, value_p, normal, coefficient);
+    Gradient const gradient_flux =
+      kernel->get_gradient_flux(value_m, value_p, normal_m, coefficient);
 
     Value const value_flux =
-      kernel->get_value_flux(gradient_m, gradient_p, value_m, value_p, normal, coefficient);
+      kernel->get_value_flux(gradient_m, gradient_p, value_m, value_p, normal_m, coefficient);
 
     integrator_m.submit_gradient(gradient_flux, q);
     integrator_p.submit_gradient(gradient_flux, q);
