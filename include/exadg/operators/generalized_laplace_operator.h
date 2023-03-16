@@ -111,14 +111,14 @@ public:
     return flags;
   }
 
-  inline DEAL_II_ALWAYS_INLINE //
+  static inline DEAL_II_ALWAYS_INLINE //
     SolutionGradient
-    get_volume_flux(SolutionGradient const & gradient, Coefficient const & coefficient) const
+    get_volume_flux(SolutionGradient const & gradient, Coefficient const & coefficient)
   {
     return coefficient * gradient;
   }
 
-  inline DEAL_II_ALWAYS_INLINE //
+  static inline DEAL_II_ALWAYS_INLINE //
     SolutionGradient
     get_gradient_flux(Solution const &    value_m,
                       Solution const &    value_p,
