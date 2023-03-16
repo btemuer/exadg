@@ -54,6 +54,7 @@ private:
   using VectorType = dealii::LinearAlgebra::distributed::Vector<Number>;
 
   using scalar = dealii::VectorizedArray<Number>;
+  using vector = dealii::Tensor<1, dim, scalar>;
 
   static constexpr unsigned int solution_rank = (n_components > 1) ? 1 : 0;
   static constexpr unsigned int coefficient_rank =
@@ -115,6 +116,19 @@ public:
     get_volume_flux(SolutionGradient const & gradient, Coefficient const & coefficient) const
   {
     return coefficient * gradient;
+  }
+
+  inline DEAL_II_ALWAYS_INLINE //
+    SolutionGradient
+    get_gradient_flux(Solution const &    value_m,
+                      Solution const &    value_p,
+                      vector const &      normal,
+                      Coefficient const & coefficient)
+  {
+    auto const jump_value  = value_m - value_p;
+    auto const jump_tensor = outer_product(jump_value, normal);
+
+    return -0.5 * coefficient * jump_tensor;
   }
 
 private:
