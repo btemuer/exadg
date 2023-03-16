@@ -63,18 +63,18 @@ private:
 public:
   template<typename F>
   void
-  reinit(dealii::MatrixFree<dim, Number> const &                                    matrix_free,
-         GeneralizedLaplaceKernelData<dim, Number, n_components, coupling_coefficient> const & data_in,
-         unsigned int const                                                         dof_index,
-         unsigned int const                                                         quad_index)
+  reinit(
+    dealii::MatrixFree<dim, Number> const & matrix_free,
+    GeneralizedLaplaceKernelData<dim, Number, n_components, coupling_coefficient> const & data_in,
+    unsigned int const                                                                    dof_index,
+    unsigned int const quad_index)
   {
     data   = data_in;
     degree = matrix_free.get_dof_handler(dof_index).get_fe().degree;
 
     calculate_penalty_parameter(matrix_free, dof_index);
 
-    coefficients.initialize(matrix_free, quad_index, 0.0);
-    set_cofficients(*(data.coefficient_function));
+    coefficients.initialize(matrix_free, quad_index, data.coefficient_function);
   }
 
 private:
@@ -87,7 +87,7 @@ private:
 
   template<typename F>
   void
-  set_coefficients(F coefficient_function)
+  set_coefficients(F const & coefficient_function)
   {
     coefficients.set_cofficients(coefficient_function);
   }
