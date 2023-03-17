@@ -134,8 +134,8 @@ public:
                       vector const &      normal,
                       Coefficient const & coefficient)
   {
-    auto const jump_value  = value_m - value_p;
-    auto const jump_tensor = outer_product(jump_value, normal);
+    Value const    jump_value  = value_m - value_p;
+    Gradient const jump_tensor = outer_product(jump_value, normal);
 
     return -0.5 * coefficient * jump_tensor;
   }
@@ -149,10 +149,10 @@ public:
                    vector const &      normal,
                    Coefficient const & coefficient)
   {
-    auto const jump_value  = value_m - value_p;
-    auto const jump_tensor = outer_product(jump_value, normal);
+    Value const    jump_value  = value_m - value_p;
+    Gradient const jump_tensor = outer_product(jump_value, normal);
 
-    auto const average_gradient = 0.5 * (gradient_m + gradient_p);
+    Gradient const average_gradient = 0.5 * (gradient_m + gradient_p);
 
     return -(coefficient * (average_gradient + tau * jump_tensor)) * normal;
   }
