@@ -295,15 +295,15 @@ public:
 
 private:
   void
-  reinit_face(unsigned int const face) const;
+  reinit_face(unsigned int face) const;
 
   void
-  reinit_boundary_face(unsigned int const face) const;
+  reinit_boundary_face(unsigned int face) const;
 
   void
-  reinit_face_cell_based(unsigned int const               cell,
-                         unsigned int const               face,
-                         dealii::types::boundary_id const boundary_id) const;
+  reinit_face_cell_based(unsigned int               cell,
+                         unsigned int               face,
+                         dealii::types::boundary_id boundary_id) const;
 
   void
   do_cell_integral(IntegratorCell & integrator) const;
