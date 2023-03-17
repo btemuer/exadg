@@ -160,6 +160,13 @@ private:
     IP::calculate_penalty_parameter<dim, Number>(penalty_parameters, matrix_free, dof_index);
   }
 
+  void
+  calculate_coefficients(dealii::MatrixFree<dim, Number> const & matrix_free,
+                         unsigned int const                      quad_index)
+  {
+    coefficients.initialize(matrix_free, quad_index, data.coefficient_function);
+  }
+
   template<typename F>
   void
   set_coefficients(F const & coefficient_function)
