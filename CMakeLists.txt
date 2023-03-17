@@ -98,7 +98,7 @@ SET(TARGET_SRC
      include/exadg/operators/mass_operator.cpp
      include/exadg/operators/rhs_operator.cpp
      include/exadg/operators/navier_stokes_calculators.cpp
-     include/exadg/operators/generalized_laplace_operator.cpp
+     include/exadg/operators/generalized_laplace_operator/generalized_laplace_operator.cpp
      # Poisson equation
      include/exadg/poisson/user_interface/parameters.cpp
      include/exadg/poisson/spatial_discretization/operator.cpp
