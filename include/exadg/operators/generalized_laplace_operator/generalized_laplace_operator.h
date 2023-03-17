@@ -223,13 +223,6 @@ public:
   }
 
 private:
-  template<typename F>
-  void
-  set_coefficients(F const & coefficient_function)
-  {
-    coefficients.set_cofficients(coefficient_function);
-  }
-
   GeneralizedLaplaceKernelData<dim, Number, n_components, coupling_coefficient> data{};
 
   unsigned int degree{1};
