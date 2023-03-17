@@ -22,4 +22,79 @@
 #ifndef INCLUDE_EXADG_OPERATORS_GENERALIZED_LAPLACE_OPERATOR_BOUNDARY_DESCRIPTOR_H_
 #define INCLUDE_EXADG_OPERATORS_GENERALIZED_LAPLACE_OPERATOR_BOUNDARY_DESCRIPTOR_H_
 
+// deal.II
+#include <deal.II/base/function.h>
+#include <deal.II/base/types.h>
+
+// ExaDG
+#include <exadg/functions_and_boundary_conditions/function_cached.h>
+
+namespace ExaDG
+{
+namespace GeneralizedLaplace
+{
+enum class BoundaryType
+{
+  Undefined,
+  Dirichlet,
+  DirichletCached,
+  Neumann
+};
+
+
+template<int rank, int dim>
+struct BoundaryDescriptor
+{
+  // Dirichlet
+  std::map<dealii::types::boundary_id, std::shared_ptr<dealii::Function<dim>>> dirichlet_bc;
+
+  // Dirichlet from another domain
+  std::map<dealii::types::boundary_id, std::shared_ptr<FunctionCached<rank, dim>>>
+    dirichlet_cached_bc;
+
+  // Neumann
+  std::map<dealii::types::boundary_id, std::shared_ptr<dealii::Function<dim>>> neumann_bc;
+
+  inline DEAL_II_ALWAYS_INLINE //
+    BoundaryType
+    get_boundary_type(dealii::types::boundary_id const boundary_id) const
+  {
+    if(this->dirichlet_bc.find(boundary_id) != this->dirichlet_bc.end())
+      return BoundaryType::Dirichlet;
+    else if(this->dirichlet_cached_bc.find(boundary_id) != this->dirichlet_cached_bc.end())
+      return BoundaryType::DirichletCached;
+    else if(this->neumann_bc.find(boundary_id) != this->neumann_bc.end())
+      return BoundaryType::Neumann;
+
+    AssertThrow(false, dealii::ExcMessage("Boundary type of face is invalid or not implemented."));
+
+    return BoundaryType::Undefined;
+  }
+
+  inline DEAL_II_ALWAYS_INLINE //
+    void
+    verify_boundary_conditions(
+      dealii::types::boundary_id const             boundary_id,
+      std::set<dealii::types::boundary_id> const & periodic_boundary_ids) const
+  {
+    unsigned int counter = 0;
+    if(dirichlet_bc.find(boundary_id) != dirichlet_bc.end())
+      counter++;
+
+    if(dirichlet_cached_bc.find(boundary_id) != dirichlet_cached_bc.end())
+      counter++;
+
+    if(neumann_bc.find(boundary_id) != neumann_bc.end())
+      counter++;
+
+    if(periodic_boundary_ids.find(boundary_id) != periodic_boundary_ids.end())
+      counter++;
+
+    AssertThrow(counter == 1,
+                dealii::ExcMessage("Boundary face with non-unique boundary type found."));
+  }
+};
+} // namespace GeneralizedLaplace
+} // namespace ExaDG
+
 #endif /* INCLUDE_EXADG_OPERATORS_GENERALIZED_LAPLACE_OPERATOR_BOUNDARY_DESCRIPTOR_H_ */

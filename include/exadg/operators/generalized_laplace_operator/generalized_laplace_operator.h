@@ -23,6 +23,7 @@
 #define INCLUDE_EXADG_OPERATORS_GENERALIZED_LAPLACE_OPERATOR_H_
 
 #include <exadg/grid/grid_utilities.h>
+#include <exadg/operators/generalized_laplace_operator/boundary_descriptor.h>
 #include <exadg/operators/interior_penalty_parameter.h>
 #include <exadg/operators/operator_base.h>
 #include <exadg/operators/variable_coefficients.h>
@@ -237,11 +238,12 @@ private:
 template<int dim, typename Number, int n_components = 1, bool coupling_coefficient = false>
 struct GeneralizedLaplaceOperatorData : public OperatorBaseData
 {
-  Operators::GeneralizedLaplaceKernelData<dim, Number, n_components, coupling_coefficient>
-    kernel_data;
+  static constexpr unsigned int value_rank = (n_components > 1) ? 1 : 0;
 
-  // TODO
-  // std::shared_ptr<BoundaryDescriptor<dim> const> bc;
+  Operators::GeneralizedLaplaceKernelData<dim, Number, n_components, coupling_coefficient>
+    kernel_data{};
+
+  std::shared_ptr<GeneralizedLaplace::BoundaryDescriptor<value_rank, dim> const> bc{};
 };
 
 template<int dim, typename Number, int n_components = 1, bool coupling_coefficient = false>
