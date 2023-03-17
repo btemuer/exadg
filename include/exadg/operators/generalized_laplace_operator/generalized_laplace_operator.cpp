@@ -25,6 +25,41 @@ namespace ExaDG
 {
 template<int dim, typename Number, int n_components, bool coupling_coefficient>
 void
+GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::initialize(
+  dealii::MatrixFree<dim, Number> const &   matrix_free,
+  dealii::AffineConstraints<Number> const & affine_constraints,
+  GeneralizedLaplaceOperatorData<dim, Number, n_components, coupling_coefficient> const & data)
+{
+  Base::reinit(matrix_free, affine_constraints, data);
+
+  operator_data = data;
+
+  kernel->reinit(matrix_free, data.kernel_data, data.dof_index, data.quad_index);
+
+  this->integrator_flags = kernel->get_integrator_flags();
+}
+
+template<int dim, typename Number, int n_components, bool coupling_coefficient>
+void
+GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::initialize(
+  dealii::MatrixFree<dim, Number> const &   matrix_free,
+  dealii::AffineConstraints<Number> const & affine_constraints,
+  GeneralizedLaplaceOperatorData<dim, Number, n_components, coupling_coefficient> const & data,
+  std::shared_ptr<
+    Operators::GeneralizedLaplaceKernel<dim, Number, n_components, coupling_coefficient>>
+    generalized_laplace_kernel)
+{
+  Base::reinit(matrix_free, affine_constraints, data);
+
+  operator_data = data;
+
+  kernel = generalized_laplace_kernel;
+
+  this->integrator_flags = kernel->get_integrator_flags();
+}
+
+template<int dim, typename Number, int n_components, bool coupling_coefficient>
+void
 GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_cell_integral(
   IntegratorCell & integrator) const
 {

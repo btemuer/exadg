@@ -216,6 +216,12 @@ public:
   initialize(
     dealii::MatrixFree<dim, Number> const &   matrix_free,
     dealii::AffineConstraints<Number> const & affine_constraints,
+    GeneralizedLaplaceOperatorData<dim, Number, n_components, coupling_coefficient> const & data);
+
+  void
+  initialize(
+    dealii::MatrixFree<dim, Number> const &   matrix_free,
+    dealii::AffineConstraints<Number> const & affine_constraints,
     GeneralizedLaplaceOperatorData<dim, Number, n_components, coupling_coefficient> const & data,
     std::shared_ptr<
       Operators::GeneralizedLaplaceKernel<dim, Number, n_components, coupling_coefficient>>
