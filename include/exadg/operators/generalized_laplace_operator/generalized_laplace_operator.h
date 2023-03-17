@@ -22,6 +22,7 @@
 #ifndef INCLUDE_EXADG_OPERATORS_GENERALIZED_LAPLACE_OPERATOR_H_
 #define INCLUDE_EXADG_OPERATORS_GENERALIZED_LAPLACE_OPERATOR_H_
 
+#include <exadg/grid/grid_utilities.h>
 #include <exadg/operators/interior_penalty_parameter.h>
 #include <exadg/operators/operator_base.h>
 #include <exadg/operators/variable_coefficients.h>
@@ -66,6 +67,9 @@ private:
   using Gradient = dealii::Tensor<value_rank + 1, dim, scalar>;
 
   using Coefficient = dealii::Tensor<coefficient_rank, dim, scalar>;
+
+  typedef CellIntegrator<dim, n_components, Number> IntegratorCell;
+  typedef FaceIntegrator<dim, n_components, Number> IntegratorFace;
 
 public:
   template<typename F>
@@ -152,7 +156,6 @@ public:
     return -(coefficient * (average_gradient + tau * jump_tensor)) * normal;
   }
 
-private:
   void
   calculate_penalty_parameter(dealii::MatrixFree<dim, Number> const & matrix_free,
                               unsigned int const                      dof_index)
@@ -167,6 +170,59 @@ private:
     coefficients.initialize(matrix_free, quad_index, data.coefficient_function);
   }
 
+  void
+  reinit_face(IntegratorFace &   integrator_m,
+              IntegratorFace &   integrator_p,
+              unsigned int const dof_index) const
+  {
+    tau = std::max(integrator_m.read_cell_data(penalty_parameters),
+                   integrator_p.read_cell_data(penalty_parameters)) *
+          IP::get_penalty_factor<dim, Number>(
+            degree,
+            GridUtilities::get_element_type(
+              integrator_m.get_matrix_free().get_dof_handler(dof_index).get_triangulation()),
+            data.IP_factor);
+  }
+
+  void
+  reinit_boundary_face(IntegratorFace & integrator_m, unsigned int const dof_index) const
+  {
+    tau = integrator_m.read_cell_data(penalty_parameters) *
+          IP::get_penalty_factor<dim, Number>(
+            degree,
+            GridUtilities::get_element_type(
+              integrator_m.get_matrix_free().get_dof_handler(dof_index).get_triangulation()),
+            data.IP_factor);
+  }
+
+  void
+  reinit_face_cell_based(dealii::types::boundary_id const boundary_id,
+                         IntegratorFace &                 integrator_m,
+                         IntegratorFace &                 integrator_p,
+                         unsigned int const               dof_index) const
+  {
+    if(boundary_id == dealii::numbers::internal_face_boundary_id) // internal face
+    {
+      tau = std::max(integrator_m.read_cell_data(penalty_parameters),
+                     integrator_p.read_cell_data(penalty_parameters)) *
+            IP::get_penalty_factor<dim, Number>(
+              degree,
+              GridUtilities::get_element_type(
+                integrator_m.get_matrix_free().get_dof_handler(dof_index).get_triangulation()),
+              data.IP_factor);
+    }
+    else // boundary face
+    {
+      tau = integrator_m.read_cell_data(penalty_parameters) *
+            IP::get_penalty_factor<dim, Number>(
+              degree,
+              GridUtilities::get_element_type(
+                integrator_m.get_matrix_free().get_dof_handler(dof_index).get_triangulation()),
+              data.IP_factor);
+    }
+  }
+
+private:
   template<typename F>
   void
   set_coefficients(F const & coefficient_function)

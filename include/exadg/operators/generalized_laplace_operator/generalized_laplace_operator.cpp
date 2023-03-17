@@ -68,6 +68,41 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::upd
 
 template<int dim, typename Number, int n_components, bool coupling_coefficient>
 void
+GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::reinit_face(
+  unsigned int const face) const
+{
+  Base::reinit_face(face);
+
+  kernel->reinit_face(*this->integrator_m, *this->integrator_p, operator_data.dof_index);
+}
+
+template<int dim, typename Number, int n_components, bool coupling_coefficient>
+void
+GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::reinit_boundary_face(
+  unsigned int const face) const
+{
+  Base::reinit_boundary_face(face);
+
+  kernel->reinit_boundary_face(*this->integrator_m, operator_data.dof_index);
+}
+
+template<int dim, typename Number, int n_components, bool coupling_coefficient>
+void
+GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::reinit_face_cell_based(
+  unsigned int const               cell,
+  unsigned int const               face,
+  dealii::types::boundary_id const boundary_id) const
+{
+  Base::reinit_face_cell_based(cell, face, boundary_id);
+
+  kernel->reinit_face_cell_based(boundary_id,
+                                 *this->integrator_m,
+                                 *this->integrator_p,
+                                 operator_data.dof_index);
+}
+
+template<int dim, typename Number, int n_components, bool coupling_coefficient>
+void
 GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_cell_integral(
   IntegratorCell & integrator) const
 {
