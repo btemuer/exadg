@@ -22,6 +22,7 @@
 #ifndef INCLUDE_EXADG_OPERATORS_GENERALIZED_LAPLACE_OPERATOR_H_
 #define INCLUDE_EXADG_OPERATORS_GENERALIZED_LAPLACE_OPERATOR_H_
 
+#include <exadg/functions_and_boundary_conditions/evaluate_functions.h>
 #include <exadg/grid/grid_utilities.h>
 #include <exadg/operators/interior_penalty_parameter.h>
 #include <exadg/operators/operator_base.h>
@@ -29,6 +30,8 @@
 #include <exadg/poisson/user_interface/boundary_descriptor.h>
 
 namespace ExaDG
+{
+namespace GeneralizedLaplaceOperator
 {
 namespace Operators
 {
@@ -235,6 +238,89 @@ private:
 };
 } // namespace Operators
 
+namespace Boundary
+{
+template<int dim, typename Number, int n_components, bool coupling_coefficient>
+struct WeakBoundaryConditions
+{
+  using scalar = dealii::VectorizedArray<Number>;
+
+  static constexpr unsigned int value_rank = (n_components > 1) ? 1 : 0;
+  static constexpr unsigned int coefficient_rank =
+    (coupling_coefficient) ? ((n_components > 1) ? 4 : 2) : 0;
+
+  using Value    = dealii::Tensor<value_rank, dim, scalar>;
+  using Gradient = dealii::Tensor<value_rank + 1, dim, scalar>;
+
+  using Coefficient = dealii::Tensor<coefficient_rank, dim, scalar>;
+
+  static inline DEAL_II_ALWAYS_INLINE //
+    Value
+    calculate_interior_value(unsigned int const                                q,
+                             FaceIntegrator<dim, n_components, Number> const & integrator,
+                             OperatorType const &                              operator_type)
+  {
+    if(operator_type == OperatorType::full || operator_type == OperatorType::homogeneous)
+      return integrator.get_value(q);
+    else if(operator_type == OperatorType::inhomogeneous)
+      return Value{};
+    else
+      AssertThrow(false, dealii::ExcMessage("Specified OperatorType is not implemented!"));
+
+    return Value{};
+  }
+
+  static inline DEAL_II_ALWAYS_INLINE //
+    Value
+    calculate_exterior_value(
+      Value const &                                                       value_m,
+      unsigned int const                                                  q,
+      FaceIntegrator<dim, n_components, Number> const &                   integrator,
+      Coefficient const &                                                 coefficient,
+      OperatorType const &                                                operator_type,
+      Poisson::BoundaryType const &                                       boundary_type,
+      dealii::types::boundary_id const                                    boundary_id,
+      std::shared_ptr<Poisson::BoundaryDescriptor<value_rank, dim> const> boundary_descriptor,
+      double const &                                                      time)
+  {
+    if(boundary_type == Poisson::BoundaryType::Neumann)
+      return value_m;
+
+    if(operator_type == OperatorType::full || operator_type == OperatorType::inhomogeneous)
+    {
+      Value g{};
+
+      if(boundary_type == Poisson::BoundaryType::Dirichlet)
+      {
+        auto const bc       = boundary_descriptor->dirichlet_bc.find(boundary_id)->second;
+        auto const q_points = integrator.quadrature_point(q);
+
+        g = FunctionEvaluator<value_rank, dim, Number>::value(bc, q_points, time);
+      }
+      else if(boundary_type == Poisson::BoundaryType::DirichletCached)
+      {
+        auto const bc         = boundary_descriptor->dirichlet_bc.find(boundary_id)->second;
+        auto const cell       = integrator.get_current_cell_index();
+        auto const quad_index = integrator.get_quadrature_index();
+
+        g = FunctionEvaluator<value_rank, dim, Number>::value(bc, cell, q, quad_index);
+      }
+      else
+        AssertThrow(false,
+                    dealii::ExcMessage("Boundary type of face is invalid or not implemented."));
+
+      return -value_m + Value(2.0 * g);
+    }
+    else if(operator_type == OperatorType::homogeneous)
+      return -value_m;
+    else
+      AssertThrow(false, dealii::ExcNotImplemented());
+
+    return Value{};
+  }
+};
+} // namespace Boundary
+
 template<int dim, typename Number, int n_components = 1, bool coupling_coefficient = false>
 struct GeneralizedLaplaceOperatorData : public OperatorBaseData
 {
@@ -325,5 +411,6 @@ private:
     Operators::GeneralizedLaplaceKernel<dim, Number, n_components, coupling_coefficient>>
     kernel;
 };
+} // namespace GeneralizedLaplaceOperator
 } // namespace ExaDG
 #endif /* INCLUDE_EXADG_OPERATORS_GENERALIZED_LAPLACE_OPERATOR_H_ */

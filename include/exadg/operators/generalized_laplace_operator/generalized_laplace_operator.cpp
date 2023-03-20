@@ -23,6 +23,8 @@
 
 namespace ExaDG
 {
+namespace GeneralizedLaplaceOperator
+{
 template<int dim, typename Number, int n_components, bool coupling_coefficient>
 void
 GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::initialize(
@@ -206,4 +208,5 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
 {
   // TODO
 }
+} // namespace GeneralizedLaplaceOperator
 } // namespace ExaDG
