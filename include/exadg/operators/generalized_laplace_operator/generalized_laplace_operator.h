@@ -160,6 +160,24 @@ public:
     return -(coefficient * (average_gradient + tau * jump_tensor)) * normal;
   }
 
+  inline DEAL_II_ALWAYS_INLINE //
+    Value
+    get_value_flux(Value const &       coeff_normal_gradient_m,
+                   Value const &       coeff_normal_gradient_p,
+                   Value const &       value_m,
+                   Value const &       value_p,
+                   vector const &      normal,
+                   Coefficient const & coefficient)
+  {
+    Value const    jump_value  = value_m - value_p;
+    Gradient const jump_tensor = outer_product(jump_value, normal);
+
+    Value const average_coeff_normal_gradient =
+      0.5 * (coeff_normal_gradient_m + coeff_normal_gradient_p);
+
+    return -(average_coeff_normal_gradient + (coefficient * (tau * jump_tensor)) * normal);
+  }
+
   void
   calculate_penalty_parameter(dealii::MatrixFree<dim, Number> const & matrix_free,
                               unsigned int const                      dof_index)
