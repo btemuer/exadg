@@ -336,6 +336,63 @@ struct WeakBoundaryConditions
 
     return Value{};
   }
+
+  static inline DEAL_II_ALWAYS_INLINE //
+    Value
+    calculate_interior_coeff_normal_gradient(
+      unsigned int const                                q,
+      FaceIntegrator<dim, n_components, Number> const & integrator,
+      OperatorType const &                              operator_type,
+      Coefficient const &                               coefficient)
+  {
+    if(operator_type == OperatorType::full || operator_type == OperatorType::homogeneous)
+      return (coefficient * integrator.get_gradient(q)) * integrator.get_normal_vector(q);
+    else if(operator_type == OperatorType::inhomogeneous)
+      return Value{};
+    else
+    {
+      AssertThrow(false, dealii::ExcNotImplemented());
+      return Value{};
+    }
+  }
+
+  static inline DEAL_II_ALWAYS_INLINE //
+    Value
+    calculate_exterior_coeff_normal_gradient(
+      Value const &                                                       coeff_normal_gradient_m,
+      unsigned int const                                                  q,
+      FaceIntegrator<dim, n_components, Number> const &                   integrator,
+      OperatorType const &                                                operator_type,
+      Poisson::BoundaryType const &                                       boundary_type,
+      dealii::types::boundary_id const                                    boundary_id,
+      std::shared_ptr<Poisson::BoundaryDescriptor<value_rank, dim> const> boundary_descriptor,
+      double const &                                                      time)
+  {
+    if(boundary_type == Poisson::BoundaryType::Dirichlet ||
+       boundary_type == Poisson::BoundaryType::DirichletCached)
+      return coeff_normal_gradient_m;
+
+    if(boundary_type == Poisson::BoundaryType::Neumann)
+    {
+      if(operator_type == OperatorType::full || operator_type == OperatorType::inhomogeneous)
+      {
+        auto const bc       = boundary_descriptor->neumann_bc.find(boundary_id)->second;
+        auto const q_points = integrator.quadrature_point(q);
+
+        auto const h = FunctionEvaluator<value_rank, dim, Number>::value(bc, q_points, time);
+
+        return coeff_normal_gradient_m + Value(2.0 * h);
+      }
+      else if(operator_type == OperatorType::homogeneous)
+        return -coeff_normal_gradient_m;
+      else
+        AssertThrow(false, dealii::ExcNotImplemented());
+    }
+
+    AssertThrow(false, dealii::ExcMessage("Boundary type of face is invalid or not implemented."));
+
+    return Value{};
+  }
 };
 } // namespace Boundary
 
