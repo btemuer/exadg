@@ -206,7 +206,49 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
   const OperatorType &               operator_type,
   const dealii::types::boundary_id & boundary_id) const
 {
-  // TODO
+  auto const boundary_type = operator_data.bc->get_boundary_type(boundary_id);
+
+  for(unsigned int q = 0; q < integrator.n_q_points; ++q)
+  {
+    unsigned int const face = integrator.get_current_cell_index();
+
+    Value const value_m = BC::calculate_interior_value(q, integrator, operator_type);
+
+    Value const value_p = BC::calculate_exterior_value(value_m,
+                                                       q,
+                                                       integrator,
+                                                       operator_type,
+                                                       boundary_type,
+                                                       boundary_id,
+                                                       operator_data.bc,
+                                                       this->time);
+
+    vector const normal_m = integrator.get_normal_vector(q);
+
+    Coefficient const coefficient = kernel->get_coefficient_face(face, q);
+
+    Gradient const gradient_flux =
+      kernel->get_gradient_flux(value_m, value_p, normal_m, coefficient);
+
+    Value const coeff_normal_gradient_m =
+      BC::calculate_interior_coeff_normal_gradient(q, integrator, boundary_type, coefficient);
+
+    Value const coeff_normal_gradient_p =
+      BC::calculate_exterior_coeff_normal_gradient(coeff_normal_gradient_m,
+                                                   q,
+                                                   integrator,
+                                                   operator_type,
+                                                   boundary_type,
+                                                   boundary_id,
+                                                   operator_data.bc,
+                                                   this->time);
+
+    Value const value_flux = kernel->get_value_flux(
+      coeff_normal_gradient_m, coeff_normal_gradient_p, value_m, value_p, normal_m, coefficient);
+
+    integrator.submit_gradient(gradient_flux, q);
+    integrator.submit_value(value_flux, q);
+  }
 }
 } // namespace GeneralizedLaplaceOperator
 } // namespace ExaDG

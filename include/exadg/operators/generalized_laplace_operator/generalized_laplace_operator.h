@@ -262,6 +262,7 @@ template<int dim, typename Number, int n_components, bool coupling_coefficient>
 struct WeakBoundaryConditions
 {
   using scalar = dealii::VectorizedArray<Number>;
+  using vector = dealii::Tensor<1, dim, scalar>;
 
   static constexpr unsigned int value_rank = (n_components > 1) ? 1 : 0;
   static constexpr unsigned int coefficient_rank =
@@ -428,6 +429,8 @@ private:
   using VectorType     = typename Base::VectorType;
   using IntegratorCell = typename Base::IntegratorCell;
   using IntegratorFace = typename Base::IntegratorFace;
+
+  using BC = Boundary::WeakBoundaryConditions<dim, Number, n_components, coupling_coefficient>;
 
 public:
   void
