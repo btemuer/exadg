@@ -145,10 +145,10 @@ public:
 
   inline DEAL_II_ALWAYS_INLINE //
     Value
-    get_value_flux(Value const &       value_m,
-                   Value const &       value_p,
-                   Gradient const &    gradient_m,
+    get_value_flux(Gradient const &    gradient_m,
                    Gradient const &    gradient_p,
+                   Value const &       value_m,
+                   Value const &       value_p,
                    vector const &      normal,
                    Coefficient const & coefficient)
   {
