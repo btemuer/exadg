@@ -294,7 +294,6 @@ struct WeakBoundaryConditions
       Value const &                                                       value_m,
       unsigned int const                                                  q,
       FaceIntegrator<dim, n_components, Number> const &                   integrator,
-      Coefficient const &                                                 coefficient,
       OperatorType const &                                                operator_type,
       Poisson::BoundaryType const &                                       boundary_type,
       dealii::types::boundary_id const                                    boundary_id,
