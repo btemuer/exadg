@@ -230,21 +230,25 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
     Gradient const gradient_flux =
       kernel->get_gradient_flux(value_m, value_p, normal_m, coefficient);
 
-    Value const coeff_normal_gradient_m =
-      BC::calculate_interior_coeff_normal_gradient(q, integrator, boundary_type, coefficient);
+    Value const coeff_times_normal_gradient_m =
+      BC::calculate_interior_coeff_times_normal_gradient(q, integrator, boundary_type, coefficient);
 
-    Value const coeff_normal_gradient_p =
-      BC::calculate_exterior_coeff_normal_gradient(coeff_normal_gradient_m,
-                                                   q,
-                                                   integrator,
-                                                   operator_type,
-                                                   boundary_type,
-                                                   boundary_id,
-                                                   operator_data.bc,
-                                                   this->time);
+    Value const coeff_times_normal_gradient_p =
+      BC::calculate_exterior_coeff_times_normal_gradient(coeff_times_normal_gradient_m,
+                                                         q,
+                                                         integrator,
+                                                         operator_type,
+                                                         boundary_type,
+                                                         boundary_id,
+                                                         operator_data.bc,
+                                                         this->time);
 
-    Value const value_flux = kernel->get_value_flux(
-      coeff_normal_gradient_m, coeff_normal_gradient_p, value_m, value_p, normal_m, coefficient);
+    Value const value_flux = kernel->get_value_flux(coeff_times_normal_gradient_m,
+                                                    coeff_times_normal_gradient_p,
+                                                    value_m,
+                                                    value_p,
+                                                    normal_m,
+                                                    coefficient);
 
     integrator.submit_gradient(gradient_flux, q);
     integrator.submit_value(value_flux, q);

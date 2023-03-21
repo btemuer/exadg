@@ -162,8 +162,8 @@ public:
 
   inline DEAL_II_ALWAYS_INLINE //
     Value
-    get_value_flux(Value const &       coeff_normal_gradient_m,
-                   Value const &       coeff_normal_gradient_p,
+    get_value_flux(Value const &       coeff_times_normal_gradient_m,
+                   Value const &       coeff_times_normal_gradient_p,
                    Value const &       value_m,
                    Value const &       value_p,
                    vector const &      normal,
@@ -172,10 +172,10 @@ public:
     Value const    jump_value  = value_m - value_p;
     Gradient const jump_tensor = outer_product(jump_value, normal);
 
-    Value const average_coeff_normal_gradient =
-      0.5 * (coeff_normal_gradient_m + coeff_normal_gradient_p);
+    Value const average_coeff_times_normal_gradient =
+      0.5 * (coeff_times_normal_gradient_m + coeff_times_normal_gradient_p);
 
-    return -(average_coeff_normal_gradient + (coefficient * (tau * jump_tensor)) * normal);
+    return -(average_coeff_times_normal_gradient + (coefficient * (tau * jump_tensor)) * normal);
   }
 
   void
@@ -339,7 +339,7 @@ struct WeakBoundaryConditions
 
   static inline DEAL_II_ALWAYS_INLINE //
     Value
-    calculate_interior_coeff_normal_gradient(
+    calculate_interior_coeff_times_normal_gradient(
       unsigned int const                                q,
       FaceIntegrator<dim, n_components, Number> const & integrator,
       OperatorType const &                              operator_type,
@@ -358,19 +358,19 @@ struct WeakBoundaryConditions
 
   static inline DEAL_II_ALWAYS_INLINE //
     Value
-    calculate_exterior_coeff_normal_gradient(
-      Value const &                                                       coeff_normal_gradient_m,
-      unsigned int const                                                  q,
-      FaceIntegrator<dim, n_components, Number> const &                   integrator,
-      OperatorType const &                                                operator_type,
-      Poisson::BoundaryType const &                                       boundary_type,
-      dealii::types::boundary_id const                                    boundary_id,
+    calculate_exterior_coeff_times_normal_gradient(
+      Value const &                                     coeff_times_normal_gradient_m,
+      unsigned int const                                q,
+      FaceIntegrator<dim, n_components, Number> const & integrator,
+      OperatorType const &                              operator_type,
+      Poisson::BoundaryType const &                     boundary_type,
+      dealii::types::boundary_id const                  boundary_id,
       std::shared_ptr<Poisson::BoundaryDescriptor<value_rank, dim> const> boundary_descriptor,
       double const &                                                      time)
   {
     if(boundary_type == Poisson::BoundaryType::Dirichlet ||
        boundary_type == Poisson::BoundaryType::DirichletCached)
-      return coeff_normal_gradient_m;
+      return coeff_times_normal_gradient_m;
 
     if(boundary_type == Poisson::BoundaryType::Neumann)
     {
@@ -381,10 +381,10 @@ struct WeakBoundaryConditions
 
         auto const h = FunctionEvaluator<value_rank, dim, Number>::value(bc, q_points, time);
 
-        return coeff_normal_gradient_m + Value(2.0 * h);
+        return coeff_times_normal_gradient_m + Value(2.0 * h);
       }
       else if(operator_type == OperatorType::homogeneous)
-        return -coeff_normal_gradient_m;
+        return -coeff_times_normal_gradient_m;
       else
         AssertThrow(false, dealii::ExcNotImplemented());
     }
