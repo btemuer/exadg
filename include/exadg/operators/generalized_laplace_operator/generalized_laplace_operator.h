@@ -72,11 +72,10 @@ private:
 
   using Coefficient = dealii::Tensor<coefficient_rank, dim, scalar>;
 
-  typedef CellIntegrator<dim, n_components, Number> IntegratorCell;
-  typedef FaceIntegrator<dim, n_components, Number> IntegratorFace;
+  using IntegratorCell = CellIntegrator<dim, n_components, Number>;
+  using IntegratorFace = FaceIntegrator<dim, n_components, Number>;
 
 public:
-  template<typename F>
   void
   reinit(
     dealii::MatrixFree<dim, Number> const & matrix_free,
@@ -190,6 +189,18 @@ public:
                          unsigned int const                      quad_index)
   {
     coefficients.initialize(matrix_free, quad_index, data.coefficient_function);
+  }
+
+  Coefficient
+  get_coefficient_cell(unsigned int const cell, unsigned int const q)
+  {
+    return coefficients.get_coefficient_cell(cell, q);
+  }
+
+  Coefficient
+  get_coefficient_face(unsigned int const face, unsigned int const q)
+  {
+    return coefficients.get_coefficient_face(face, q);
   }
 
   void

@@ -108,7 +108,7 @@ void
 GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_cell_integral(
   IntegratorCell & integrator) const
 {
-  for(unsigned int q = 0; q < integrator.n_q; ++q)
+  for(unsigned int q = 0; q < integrator.n_q_points; ++q)
   {
     unsigned int const cell     = integrator.get_current_cell_index();
     Gradient const     gradient = integrator.get_gradient(q);
@@ -128,7 +128,7 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
 {
   for(unsigned int q = 0; q < integrator_m.n_q_points; ++q)
   {
-    unsigned int const cell = integrator_m.get_current_cell_index();
+    unsigned int const face = integrator_m.get_current_cell_index();
 
     Value const value_m = integrator_m.get_value(q);
     Value const value_p = integrator_p.get_value(q);
@@ -138,7 +138,7 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
 
     vector const normal_m = integrator_m.get_normal_vector(q);
 
-    Coefficient const coefficient = kernel->get_coefficient(cell, q);
+    Coefficient const coefficient = kernel->get_coefficient_face(face, q);
 
     Gradient const gradient_flux =
       kernel->get_gradient_flux(value_m, value_p, normal_m, coefficient);
@@ -231,7 +231,7 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
       kernel->get_gradient_flux(value_m, value_p, normal_m, coefficient);
 
     Value const coeff_times_normal_gradient_m =
-      BC::calculate_interior_coeff_times_normal_gradient(q, integrator, boundary_type, coefficient);
+      BC::calculate_interior_coeff_times_normal_gradient(q, integrator, operator_type, coefficient);
 
     Value const coeff_times_normal_gradient_p =
       BC::calculate_exterior_coeff_times_normal_gradient(coeff_times_normal_gradient_m,
@@ -254,5 +254,24 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
     integrator.submit_value(value_flux, q);
   }
 }
+
+template class GeneralizedLaplaceOperator<2, float, 1, false>;
+template class GeneralizedLaplaceOperator<3, float, 1, false>;
+
+template class GeneralizedLaplaceOperator<2, float, 2, false>;
+template class GeneralizedLaplaceOperator<2, float, 2, true>;
+
+template class GeneralizedLaplaceOperator<3, float, 3, false>;
+template class GeneralizedLaplaceOperator<3, float, 3, true>;
+
+template class GeneralizedLaplaceOperator<2, double, 1, false>;
+template class GeneralizedLaplaceOperator<3, double, 1, false>;
+
+template class GeneralizedLaplaceOperator<2, double, 2, false>;
+template class GeneralizedLaplaceOperator<2, double, 2, true>;
+
+template class GeneralizedLaplaceOperator<3, double, 3, false>;
+template class GeneralizedLaplaceOperator<3, double, 3, true>;
+
 } // namespace GeneralizedLaplaceOperator
 } // namespace ExaDG
