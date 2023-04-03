@@ -328,7 +328,7 @@ struct WeakBoundaryConditions
       }
       else if(boundary_type == Poisson::BoundaryType::DirichletCached)
       {
-        auto const bc         = boundary_descriptor->dirichlet_bc.find(boundary_id)->second;
+        auto const bc         = boundary_descriptor->dirichlet_cached_bc.find(boundary_id)->second;
         auto const cell       = integrator.get_current_cell_index();
         auto const quad_index = integrator.get_quadrature_index();
 
