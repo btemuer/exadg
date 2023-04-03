@@ -488,21 +488,21 @@ public:
 
 private:
   void
-  reinit_face(unsigned int face) const;
+  reinit_face(unsigned int face) const override;
 
   void
-  reinit_boundary_face(unsigned int face) const;
+  reinit_boundary_face(unsigned int face) const override;
 
   void
   reinit_face_cell_based(unsigned int               cell,
                          unsigned int               face,
-                         dealii::types::boundary_id boundary_id) const;
+                         dealii::types::boundary_id boundary_id) const override;
 
   void
-  do_cell_integral(IntegratorCell & integrator) const;
+  do_cell_integral(IntegratorCell & integrator) const override;
 
   void
-  do_face_integral(IntegratorFace & integrator_m, IntegratorFace & integrator_p) const;
+  do_face_integral(IntegratorFace & integrator_m, IntegratorFace & integrator_p) const override;
 
   void
   do_face_int_integral(IntegratorFace & integrator_m,
@@ -510,12 +510,12 @@ private:
                        bool             revert_int_ext = false) const;
 
   void
-  do_face_ext_integral(IntegratorFace & integrator_m, IntegratorFace & integrator_p) const;
+  do_face_ext_integral(IntegratorFace & integrator_m, IntegratorFace & integrator_p) const override;
 
   void
   do_boundary_integral(IntegratorFace &                   integrator,
                        OperatorType const &               operator_type,
-                       dealii::types::boundary_id const & boundary_id) const;
+                       dealii::types::boundary_id const & boundary_id) const override;
 
   GeneralizedLaplaceOperatorData<dim, Number, n_components, coupling_coefficient> operator_data;
 
