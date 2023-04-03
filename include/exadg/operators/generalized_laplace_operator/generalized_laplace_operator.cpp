@@ -158,8 +158,7 @@ template<int dim, typename Number, int n_components, bool coupling_coefficient>
 void
 GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_face_int_integral(
   IntegratorFace & integrator_m,
-  IntegratorFace & integrator_p,
-  bool const       revert_int_ext) const
+  IntegratorFace & integrator_p) const
 {
   (void)integrator_p;
 
@@ -173,8 +172,7 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
     Gradient const gradient_m = integrator_m.get_gradient(q);
     Gradient const gradient_p; // set exterior gradients to zero
 
-    vector const normal_m =
-      (revert_int_ext) ? -integrator_m.get_normal_vector(q) : integrator_m.get_normal_vector(q);
+    vector const normal_m = integrator_m.get_normal_vector(q);
 
     Coefficient const coefficient = kernel->get_coefficient_face(face, q);
 
@@ -195,8 +193,32 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
   IntegratorFace & integrator_m,
   IntegratorFace & integrator_p) const
 {
-  // call do_face_int_integral() with the reverse order and set revert_int_ext to true
-  do_face_int_integral(integrator_p, integrator_m, true);
+  (void)integrator_m;
+
+  for(unsigned int q = 0; q < integrator_m.n_q_points; ++q)
+  {
+    unsigned int const face = integrator_m.get_current_cell_index();
+
+    Value const value_m; // set interior values to zero
+    Value const value_p = integrator_p.get_value(q);
+
+    Gradient const gradient_m; // set interior gradients to zero
+    Gradient const gradient_p = integrator_p.get_gradient(q);
+
+    // multiply by -1.0 to get the correct normal vector
+    vector const normal_p = -integrator_p.get_normal_vector(q);
+
+    Coefficient const coefficient = kernel->get_coefficient_face(face, q);
+
+    Gradient const gradient_flux =
+      kernel->get_gradient_flux(value_p, value_m, normal_p, coefficient);
+
+    Value const value_flux =
+      kernel->get_value_flux(gradient_p, gradient_m, value_p, value_m, normal_p, coefficient);
+
+    integrator_p.submit_gradient(gradient_flux, q);
+    integrator_p.submit_value(value_flux, q);
+  }
 }
 
 template<int dim, typename Number, int n_components, bool coupling_coefficient>
