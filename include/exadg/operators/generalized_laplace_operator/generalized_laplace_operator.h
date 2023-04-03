@@ -67,10 +67,10 @@ private:
   static constexpr unsigned int coefficient_rank =
     (coupling_coefficient) ? ((n_components > 1) ? 4 : 2) : 0;
 
-  using Value    = dealii::Tensor<value_rank, dim, scalar>;
-  using Gradient = dealii::Tensor<value_rank + 1, dim, scalar>;
+  using value_type    = dealii::Tensor<value_rank, dim, scalar>;
+  using gradient_type = dealii::Tensor<value_rank + 1, dim, scalar>;
 
-  using Coefficient = dealii::Tensor<coefficient_rank, dim, scalar>;
+  using coefficient_type = dealii::Tensor<coefficient_rank, dim, scalar>;
 
   using IntegratorCell = CellIntegrator<dim, n_components, Number>;
   using IntegratorFace = FaceIntegrator<dim, n_components, Number>;
@@ -123,59 +123,59 @@ public:
   }
 
   static inline DEAL_II_ALWAYS_INLINE //
-    Gradient
-    get_volume_flux(Gradient const & gradient, Coefficient const & coefficient)
+    gradient_type
+    get_volume_flux(gradient_type const & gradient, coefficient_type const & coefficient)
   {
     return coeff_mult(coefficient, gradient);
   }
 
   static inline DEAL_II_ALWAYS_INLINE //
-    Gradient
-    get_gradient_flux(Value const &       value_m,
-                      Value const &       value_p,
-                      vector const &      normal,
-                      Coefficient const & coefficient)
+    gradient_type
+    get_gradient_flux(value_type const &       value_m,
+                      value_type const &       value_p,
+                      vector const &           normal,
+                      coefficient_type const & coefficient)
   {
-    Value const    jump_value  = value_m - value_p;
-    Gradient const jump_tensor = outer_product(jump_value, normal);
+    value_type const    jump_value  = value_m - value_p;
+    gradient_type const jump_tensor = outer_product(jump_value, normal);
 
     return -0.5 * coeff_mult(coefficient, jump_tensor);
   }
 
   inline DEAL_II_ALWAYS_INLINE //
-    Value
-    get_value_flux(Gradient const &    gradient_m,
-                   Gradient const &    gradient_p,
-                   Value const &       value_m,
-                   Value const &       value_p,
-                   vector const &      normal,
-                   Coefficient const & coefficient)
+    value_type
+    get_value_flux(gradient_type const &    gradient_m,
+                   gradient_type const &    gradient_p,
+                   value_type const &       value_m,
+                   value_type const &       value_p,
+                   vector const &           normal,
+                   coefficient_type const & coefficient)
   {
-    Value const    jump_value  = value_m - value_p;
-    Gradient const jump_tensor = outer_product(jump_value, normal);
+    value_type const    jump_value  = value_m - value_p;
+    gradient_type const jump_tensor = outer_product(jump_value, normal);
 
-    Gradient const average_gradient = 0.5 * (gradient_m + gradient_p);
+    gradient_type const average_gradient = 0.5 * (gradient_m + gradient_p);
 
     return -coeff_mult(coefficient, (average_gradient + tau * jump_tensor)) * normal;
   }
 
   inline DEAL_II_ALWAYS_INLINE //
-    Value
-    get_value_flux(Value const &       coeff_times_normal_gradient_m,
-                   Value const &       coeff_times_normal_gradient_p,
-                   Value const &       value_m,
-                   Value const &       value_p,
-                   vector const &      normal,
-                   Coefficient const & coefficient)
+    value_type
+    get_value_flux(value_type const &       coeff_times_normal_gradient_m,
+                   value_type const &       coeff_times_normal_gradient_p,
+                   value_type const &       value_m,
+                   value_type const &       value_p,
+                   vector const &           normal,
+                   coefficient_type const & coefficient)
   {
-    Value const    jump_value  = value_m - value_p;
-    Gradient const jump_tensor = outer_product(jump_value, normal);
+    value_type const    jump_value  = value_m - value_p;
+    gradient_type const jump_tensor = outer_product(jump_value, normal);
 
-    Value const average_coeff_times_normal_gradient =
+    value_type const average_coeff_times_normal_gradient =
       0.5 * (coeff_times_normal_gradient_m + coeff_times_normal_gradient_p);
 
     return -(average_coeff_times_normal_gradient +
-             Value(coeff_mult(coefficient, (tau * jump_tensor)) * normal));
+             value_type(coeff_mult(coefficient, (tau * jump_tensor)) * normal));
   }
 
   void
@@ -192,13 +192,13 @@ public:
     coefficients.initialize(matrix_free, quad_index, data.coefficient_function);
   }
 
-  Coefficient
+  coefficient_type
   get_coefficient_cell(unsigned int const cell, unsigned int const q)
   {
     return coefficients.get_coefficient_cell(cell, q);
   }
 
-  Coefficient
+  coefficient_type
   get_coefficient_face(unsigned int const face, unsigned int const q)
   {
     return coefficients.get_coefficient_face(face, q);
@@ -260,7 +260,7 @@ private:
   template<typename T>
   static inline DEAL_II_ALWAYS_INLINE //
     T
-    coeff_mult(Coefficient const & coeff, T const & x)
+    coeff_mult(coefficient_type const & coeff, T const & x)
   {
     if constexpr(coefficient_rank == 4)
       return dealii::double_contract<2, 0, 3, 1>(coeff, x);
@@ -274,8 +274,8 @@ private:
 
   mutable scalar tau{0.0};
 
-  dealii::AlignedVector<scalar>             penalty_parameters{};
-  mutable VariableCoefficients<Coefficient> coefficients{};
+  dealii::AlignedVector<scalar>                  penalty_parameters{};
+  mutable VariableCoefficients<coefficient_type> coefficients{};
 };
 } // namespace Operators
 
@@ -291,13 +291,13 @@ struct WeakBoundaryConditions
   static constexpr unsigned int coefficient_rank =
     (coupling_coefficient) ? ((n_components > 1) ? 4 : 2) : 0;
 
-  using Value    = dealii::Tensor<value_rank, dim, scalar>;
-  using Gradient = dealii::Tensor<value_rank + 1, dim, scalar>;
+  using value_type    = dealii::Tensor<value_rank, dim, scalar>;
+  using gradient_type = dealii::Tensor<value_rank + 1, dim, scalar>;
 
-  using Coefficient = dealii::Tensor<coefficient_rank, dim, scalar>;
+  using coefficient_type = dealii::Tensor<coefficient_rank, dim, scalar>;
 
   static inline DEAL_II_ALWAYS_INLINE //
-    Value
+    value_type
     calculate_interior_value(unsigned int const                                q,
                              FaceIntegrator<dim, n_components, Number> const & integrator,
                              OperatorType const &                              operator_type)
@@ -305,17 +305,17 @@ struct WeakBoundaryConditions
     if(operator_type == OperatorType::full || operator_type == OperatorType::homogeneous)
       return integrator.get_value(q);
     else if(operator_type == OperatorType::inhomogeneous)
-      return Value{};
+      return value_type{};
     else
       AssertThrow(false, dealii::ExcMessage("Specified OperatorType is not implemented!"));
 
-    return Value{};
+    return value_type{};
   }
 
   static inline DEAL_II_ALWAYS_INLINE //
-    Value
+    value_type
     calculate_exterior_value(
-      Value const &                                                       value_m,
+      value_type const &                                                  value_m,
       unsigned int const                                                  q,
       FaceIntegrator<dim, n_components, Number> const &                   integrator,
       OperatorType const &                                                operator_type,
@@ -329,7 +329,7 @@ struct WeakBoundaryConditions
 
     if(operator_type == OperatorType::full || operator_type == OperatorType::inhomogeneous)
     {
-      Value g{};
+      value_type g{};
 
       if(boundary_type == Poisson::BoundaryType::Dirichlet)
       {
@@ -350,39 +350,39 @@ struct WeakBoundaryConditions
         AssertThrow(false,
                     dealii::ExcMessage("Boundary type of face is invalid or not implemented."));
 
-      return -value_m + Value(2.0 * g);
+      return -value_m + value_type(2.0 * g);
     }
     else if(operator_type == OperatorType::homogeneous)
       return -value_m;
     else
       AssertThrow(false, dealii::ExcNotImplemented());
 
-    return Value{};
+    return value_type{};
   }
 
   static inline DEAL_II_ALWAYS_INLINE //
-    Value
+    value_type
     calculate_interior_coeff_times_normal_gradient(
       unsigned int const                                q,
       FaceIntegrator<dim, n_components, Number> const & integrator,
       OperatorType const &                              operator_type,
-      Coefficient const &                               coefficient)
+      coefficient_type const &                          coefficient)
   {
     if(operator_type == OperatorType::full || operator_type == OperatorType::homogeneous)
       return coeff_mult(coefficient, integrator.get_gradient(q)) * integrator.get_normal_vector(q);
     else if(operator_type == OperatorType::inhomogeneous)
-      return Value{};
+      return value_type{};
     else
     {
       AssertThrow(false, dealii::ExcNotImplemented());
-      return Value{};
+      return value_type{};
     }
   }
 
   static inline DEAL_II_ALWAYS_INLINE //
-    Value
+    value_type
     calculate_exterior_coeff_times_normal_gradient(
-      Value const &                                     coeff_times_normal_gradient_m,
+      value_type const &                                coeff_times_normal_gradient_m,
       unsigned int const                                q,
       FaceIntegrator<dim, n_components, Number> const & integrator,
       OperatorType const &                              operator_type,
@@ -404,7 +404,7 @@ struct WeakBoundaryConditions
 
         auto const h = FunctionEvaluator<value_rank, dim, Number>::value(bc, q_points, time);
 
-        return coeff_times_normal_gradient_m + Value(2.0 * h);
+        return coeff_times_normal_gradient_m + value_type(2.0 * h);
       }
       else if(operator_type == OperatorType::homogeneous)
         return -coeff_times_normal_gradient_m;
@@ -414,14 +414,14 @@ struct WeakBoundaryConditions
 
     AssertThrow(false, dealii::ExcMessage("Boundary type of face is invalid or not implemented."));
 
-    return Value{};
+    return value_type{};
   }
 
 private:
   template<typename T>
   static inline DEAL_II_ALWAYS_INLINE //
     T
-    coeff_mult(Coefficient const & coeff, T const & x)
+    coeff_mult(coefficient_type const & coeff, T const & x)
   {
     if constexpr(coefficient_rank == 4)
       return dealii::double_contract<2, 0, 3, 1>(coeff, x);
@@ -453,10 +453,10 @@ private:
   static constexpr unsigned int coefficient_rank =
     (coupling_coefficient) ? ((n_components > 1) ? 4 : 2) : 0;
 
-  using Value    = dealii::Tensor<value_rank, dim, scalar>;
-  using Gradient = dealii::Tensor<value_rank + 1, dim, scalar>;
+  using value_type    = dealii::Tensor<value_rank, dim, scalar>;
+  using gradient_type = dealii::Tensor<value_rank + 1, dim, scalar>;
 
-  using Coefficient = dealii::Tensor<coefficient_rank, dim, scalar>;
+  using coefficient_type = dealii::Tensor<coefficient_rank, dim, scalar>;
 
   using Base = OperatorBase<dim, Number, n_components>;
 

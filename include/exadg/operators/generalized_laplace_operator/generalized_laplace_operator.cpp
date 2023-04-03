@@ -110,11 +110,11 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
 {
   for(unsigned int q = 0; q < integrator.n_q_points; ++q)
   {
-    unsigned int const cell     = integrator.get_current_cell_index();
-    Gradient const     gradient = integrator.get_gradient(q);
+    unsigned int const  cell     = integrator.get_current_cell_index();
+    gradient_type const gradient = integrator.get_gradient(q);
 
-    Coefficient const coefficient = kernel->get_coefficient_cell(cell, q);
-    Gradient const    volume_flux = kernel->get_volume_flux(gradient, coefficient);
+    coefficient_type const coefficient = kernel->get_coefficient_cell(cell, q);
+    gradient_type const    volume_flux = kernel->get_volume_flux(gradient, coefficient);
 
     integrator.submit_gradient(volume_flux, q);
   }
@@ -130,20 +130,20 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
   {
     unsigned int const face = integrator_m.get_current_cell_index();
 
-    Value const value_m = integrator_m.get_value(q);
-    Value const value_p = integrator_p.get_value(q);
+    value_type const value_m = integrator_m.get_value(q);
+    value_type const value_p = integrator_p.get_value(q);
 
-    Gradient const gradient_m = integrator_m.get_gradient(q);
-    Gradient const gradient_p = integrator_p.get_gradient(q);
+    gradient_type const gradient_m = integrator_m.get_gradient(q);
+    gradient_type const gradient_p = integrator_p.get_gradient(q);
 
     vector const normal_m = integrator_m.get_normal_vector(q);
 
-    Coefficient const coefficient = kernel->get_coefficient_face(face, q);
+    coefficient_type const coefficient = kernel->get_coefficient_face(face, q);
 
-    Gradient const gradient_flux =
+    gradient_type const gradient_flux =
       kernel->get_gradient_flux(value_m, value_p, normal_m, coefficient);
 
-    Value const value_flux =
+    value_type const value_flux =
       kernel->get_value_flux(gradient_m, gradient_p, value_m, value_p, normal_m, coefficient);
 
     integrator_m.submit_gradient(gradient_flux, q);
@@ -166,20 +166,20 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
   {
     unsigned int const face = integrator_m.get_current_cell_index();
 
-    Value const value_m = integrator_m.get_value(q);
-    Value const value_p; // set exterior values to zero
+    value_type const value_m = integrator_m.get_value(q);
+    value_type const value_p; // set exterior values to zero
 
-    Gradient const gradient_m = integrator_m.get_gradient(q);
-    Gradient const gradient_p; // set exterior gradients to zero
+    gradient_type const gradient_m = integrator_m.get_gradient(q);
+    gradient_type const gradient_p; // set exterior gradients to zero
 
     vector const normal_m = integrator_m.get_normal_vector(q);
 
-    Coefficient const coefficient = kernel->get_coefficient_face(face, q);
+    coefficient_type const coefficient = kernel->get_coefficient_face(face, q);
 
-    Gradient const gradient_flux =
+    gradient_type const gradient_flux =
       kernel->get_gradient_flux(value_m, value_p, normal_m, coefficient);
 
-    Value const value_flux =
+    value_type const value_flux =
       kernel->get_value_flux(gradient_m, gradient_p, value_m, value_p, normal_m, coefficient);
 
     integrator_m.submit_gradient(gradient_flux, q);
@@ -199,21 +199,21 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
   {
     unsigned int const face = integrator_m.get_current_cell_index();
 
-    Value const value_m; // set interior values to zero
-    Value const value_p = integrator_p.get_value(q);
+    value_type const value_m; // set interior values to zero
+    value_type const value_p = integrator_p.get_value(q);
 
-    Gradient const gradient_m; // set interior gradients to zero
-    Gradient const gradient_p = integrator_p.get_gradient(q);
+    gradient_type const gradient_m; // set interior gradients to zero
+    gradient_type const gradient_p = integrator_p.get_gradient(q);
 
     // multiply by -1.0 to get the correct normal vector
     vector const normal_p = -integrator_p.get_normal_vector(q);
 
-    Coefficient const coefficient = kernel->get_coefficient_face(face, q);
+    coefficient_type const coefficient = kernel->get_coefficient_face(face, q);
 
-    Gradient const gradient_flux =
+    gradient_type const gradient_flux =
       kernel->get_gradient_flux(value_p, value_m, normal_p, coefficient);
 
-    Value const value_flux =
+    value_type const value_flux =
       kernel->get_value_flux(gradient_p, gradient_m, value_p, value_m, normal_p, coefficient);
 
     integrator_p.submit_gradient(gradient_flux, q);
@@ -234,28 +234,28 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
   {
     unsigned int const face = integrator.get_current_cell_index();
 
-    Value const value_m = BC::calculate_interior_value(q, integrator, operator_type);
+    value_type const value_m = BC::calculate_interior_value(q, integrator, operator_type);
 
-    Value const value_p = BC::calculate_exterior_value(value_m,
-                                                       q,
-                                                       integrator,
-                                                       operator_type,
-                                                       boundary_type,
-                                                       boundary_id,
-                                                       operator_data.bc,
-                                                       this->time);
+    value_type const value_p = BC::calculate_exterior_value(value_m,
+                                                            q,
+                                                            integrator,
+                                                            operator_type,
+                                                            boundary_type,
+                                                            boundary_id,
+                                                            operator_data.bc,
+                                                            this->time);
 
     vector const normal_m = integrator.get_normal_vector(q);
 
-    Coefficient const coefficient = kernel->get_coefficient_face(face, q);
+    coefficient_type const coefficient = kernel->get_coefficient_face(face, q);
 
-    Gradient const gradient_flux =
+    gradient_type const gradient_flux =
       kernel->get_gradient_flux(value_m, value_p, normal_m, coefficient);
 
-    Value const coeff_times_normal_gradient_m =
+    value_type const coeff_times_normal_gradient_m =
       BC::calculate_interior_coeff_times_normal_gradient(q, integrator, operator_type, coefficient);
 
-    Value const coeff_times_normal_gradient_p =
+    value_type const coeff_times_normal_gradient_p =
       BC::calculate_exterior_coeff_times_normal_gradient(coeff_times_normal_gradient_m,
                                                          q,
                                                          integrator,
@@ -265,12 +265,12 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
                                                          operator_data.bc,
                                                          this->time);
 
-    Value const value_flux = kernel->get_value_flux(coeff_times_normal_gradient_m,
-                                                    coeff_times_normal_gradient_p,
-                                                    value_m,
-                                                    value_p,
-                                                    normal_m,
-                                                    coefficient);
+    value_type const value_flux = kernel->get_value_flux(coeff_times_normal_gradient_m,
+                                                         coeff_times_normal_gradient_p,
+                                                         value_m,
+                                                         value_p,
+                                                         normal_m,
+                                                         coefficient);
 
     integrator.submit_gradient(gradient_flux, q);
     integrator.submit_value(value_flux, q);
