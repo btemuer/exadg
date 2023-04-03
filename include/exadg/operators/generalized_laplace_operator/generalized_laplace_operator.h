@@ -126,7 +126,7 @@ public:
     Gradient
     get_volume_flux(Gradient const & gradient, Coefficient const & coefficient)
   {
-    return coefficient * gradient;
+    return coeff_mult(coefficient, gradient);
   }
 
   static inline DEAL_II_ALWAYS_INLINE //
@@ -139,7 +139,7 @@ public:
     Value const    jump_value  = value_m - value_p;
     Gradient const jump_tensor = outer_product(jump_value, normal);
 
-    return -0.5 * coefficient * jump_tensor;
+    return -0.5 * coeff_mult(coefficient, jump_tensor);
   }
 
   inline DEAL_II_ALWAYS_INLINE //
@@ -156,7 +156,7 @@ public:
 
     Gradient const average_gradient = 0.5 * (gradient_m + gradient_p);
 
-    return -(coefficient * (average_gradient + tau * jump_tensor)) * normal;
+    return -coeff_mult(coefficient, (average_gradient + tau * jump_tensor)) * normal;
   }
 
   inline DEAL_II_ALWAYS_INLINE //
@@ -174,7 +174,8 @@ public:
     Value const average_coeff_times_normal_gradient =
       0.5 * (coeff_times_normal_gradient_m + coeff_times_normal_gradient_p);
 
-    return -(average_coeff_times_normal_gradient + (coefficient * (tau * jump_tensor)) * normal);
+    return -(average_coeff_times_normal_gradient +
+             Value(coeff_mult(coefficient, (tau * jump_tensor)) * normal));
   }
 
   void
@@ -256,6 +257,17 @@ public:
   }
 
 private:
+  template<typename T>
+  static inline DEAL_II_ALWAYS_INLINE //
+    T
+    coeff_mult(Coefficient const & coeff, T const & x)
+  {
+    if constexpr(coefficient_rank == 4)
+      return dealii::double_contract<2, 0, 3, 1>(coeff, x);
+    else
+      return coeff * x;
+  }
+
   GeneralizedLaplaceKernelData<dim, Number, n_components, coupling_coefficient> data{};
 
   unsigned int degree{1};
@@ -357,7 +369,7 @@ struct WeakBoundaryConditions
       Coefficient const &                               coefficient)
   {
     if(operator_type == OperatorType::full || operator_type == OperatorType::homogeneous)
-      return (coefficient * integrator.get_gradient(q)) * integrator.get_normal_vector(q);
+      return coeff_mult(coefficient, integrator.get_gradient(q)) * integrator.get_normal_vector(q);
     else if(operator_type == OperatorType::inhomogeneous)
       return Value{};
     else
@@ -403,6 +415,18 @@ struct WeakBoundaryConditions
     AssertThrow(false, dealii::ExcMessage("Boundary type of face is invalid or not implemented."));
 
     return Value{};
+  }
+
+private:
+  template<typename T>
+  static inline DEAL_II_ALWAYS_INLINE //
+    T
+    coeff_mult(Coefficient const & coeff, T const & x)
+  {
+    if constexpr(coefficient_rank == 4)
+      return dealii::double_contract<2, 0, 3, 1>(coeff, x);
+    else
+      return coeff * x;
   }
 };
 } // namespace Boundary
