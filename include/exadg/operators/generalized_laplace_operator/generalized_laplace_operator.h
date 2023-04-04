@@ -44,9 +44,8 @@ private:
 
   using scalar = dealii::VectorizedArray<Number>;
 
-  using Coefficient = dealii::Tensor<coefficient_rank, dim, scalar>;
-
-  using CoefficientFunction = std::function<Coefficient(unsigned int, unsigned int)>;
+  using CoefficientFunction =
+    std::function<dealii::Tensor<coefficient_rank, dim, scalar>(unsigned int, unsigned int)>;
 
 public:
   double IP_factor{1.0};
