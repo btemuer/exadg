@@ -337,14 +337,6 @@ struct WeakBoundaryConditions
 
         g = FunctionEvaluator<value_rank, dim, Number>::value(bc, q_points, time);
       }
-      else if(boundary_type == Poisson::BoundaryType::DirichletCached)
-      {
-        auto const bc         = boundary_descriptor->dirichlet_cached_bc.find(boundary_id)->second;
-        auto const cell       = integrator.get_current_cell_index();
-        auto const quad_index = integrator.get_quadrature_index();
-
-        g = FunctionEvaluator<value_rank, dim, Number>::value(bc, cell, q, quad_index);
-      }
       else
         AssertThrow(false,
                     dealii::ExcMessage("Boundary type of face is invalid or not implemented."));
@@ -390,8 +382,7 @@ struct WeakBoundaryConditions
       std::shared_ptr<Poisson::BoundaryDescriptor<value_rank, dim> const> boundary_descriptor,
       double const &                                                      time)
   {
-    if(boundary_type == Poisson::BoundaryType::Dirichlet ||
-       boundary_type == Poisson::BoundaryType::DirichletCached)
+    if(boundary_type == Poisson::BoundaryType::Dirichlet)
       return coeff_times_normal_gradient_m;
 
     if(boundary_type == Poisson::BoundaryType::Neumann)
