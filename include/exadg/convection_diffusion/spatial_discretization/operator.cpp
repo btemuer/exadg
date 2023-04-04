@@ -195,6 +195,7 @@ Operator<dim, Number>::setup(std::shared_ptr<dealii::MatrixFree<dim, Number>> ma
     diffusive_kernel = std::make_shared<Operators::DiffusiveKernel<dim, Number>>();
     diffusive_kernel->reinit(*matrix_free, diffusive_kernel_data, get_dof_index());
 
+    /*
     DiffusiveOperatorData<dim> diffusive_operator_data;
     diffusive_operator_data.dof_index            = get_dof_index();
     diffusive_operator_data.quad_index           = get_quad_index();
@@ -208,6 +209,13 @@ Operator<dim, Number>::setup(std::shared_ptr<dealii::MatrixFree<dim, Number>> ma
                                   affine_constraints,
                                   diffusive_operator_data,
                                   diffusive_kernel);
+    */
+
+    GeneralizedLaplaceOperator::GeneralizedLaplaceOperatorData<dim, Number>
+      diffusive_operator_data;
+    diffusive_operator_data.dof_index  = get_dof_index();
+    diffusive_operator_data.quad_index = get_quad_index();
+    // stuck here due to boundary descriptor and missing flags
   }
 
   // rhs operator
