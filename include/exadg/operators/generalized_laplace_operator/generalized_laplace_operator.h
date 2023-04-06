@@ -44,13 +44,13 @@ private:
 
   using scalar = dealii::VectorizedArray<Number>;
 
-  using coeff_function_type =
+  using coefficient_function_type =
     std::function<dealii::Tensor<coefficient_rank, dim, scalar>(unsigned int, unsigned int)>;
 
 public:
   double IP_factor{1.0};
 
-  coeff_function_type coefficient_function{};
+  coefficient_function_type coefficient_function{};
 };
 
 template<int dim, typename Number, int n_components = 1, bool coupling_coefficient = false>
