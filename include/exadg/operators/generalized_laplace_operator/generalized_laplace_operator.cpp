@@ -140,10 +140,10 @@ Operator<dim, Number, n_components, coupling_coefficient>::do_face_integral(
     coefficient_type const coefficient = kernel->get_coefficient_face(face, q);
 
     gradient_type const gradient_flux =
-      kernel->get_gradient_flux(value_m, value_p, normal_m, coefficient);
+      kernel->calculate_gradient_flux(value_m, value_p, normal_m, coefficient);
 
     value_type const value_flux =
-      kernel->get_value_flux(gradient_m, gradient_p, value_m, value_p, normal_m, coefficient);
+      kernel->calculate_value_flux(gradient_m, gradient_p, value_m, value_p, normal_m, coefficient);
 
     integrator_m.submit_gradient(gradient_flux, q);
     integrator_p.submit_gradient(gradient_flux, q);
@@ -176,10 +176,10 @@ Operator<dim, Number, n_components, coupling_coefficient>::do_face_int_integral(
     coefficient_type const coefficient = kernel->get_coefficient_face(face, q);
 
     gradient_type const gradient_flux =
-      kernel->get_gradient_flux(value_m, value_p, normal_m, coefficient);
+      kernel->calculate_gradient_flux(value_m, value_p, normal_m, coefficient);
 
     value_type const value_flux =
-      kernel->get_value_flux(gradient_m, gradient_p, value_m, value_p, normal_m, coefficient);
+      kernel->calculate_value_flux(gradient_m, gradient_p, value_m, value_p, normal_m, coefficient);
 
     integrator_m.submit_gradient(gradient_flux, q);
     integrator_m.submit_value(value_flux, q);
@@ -210,10 +210,10 @@ Operator<dim, Number, n_components, coupling_coefficient>::do_face_ext_integral(
     coefficient_type const coefficient = kernel->get_coefficient_face(face, q);
 
     gradient_type const gradient_flux =
-      kernel->get_gradient_flux(value_p, value_m, normal_p, coefficient);
+      kernel->calculate_gradient_flux(value_p, value_m, normal_p, coefficient);
 
     value_type const value_flux =
-      kernel->get_value_flux(gradient_p, gradient_m, value_p, value_m, normal_p, coefficient);
+      kernel->calculate_value_flux(gradient_p, gradient_m, value_p, value_m, normal_p, coefficient);
 
     integrator_p.submit_gradient(gradient_flux, q);
     integrator_p.submit_value(value_flux, q);
@@ -249,7 +249,7 @@ Operator<dim, Number, n_components, coupling_coefficient>::do_boundary_integral(
     coefficient_type const coefficient = kernel->get_coefficient_face(face, q);
 
     gradient_type const gradient_flux =
-      kernel->get_gradient_flux(value_m, value_p, normal_m, coefficient);
+      kernel->calculate_gradient_flux(value_m, value_p, normal_m, coefficient);
 
     value_type const coeff_times_normal_gradient_m =
       BC::calculate_interior_coeff_times_normal_gradient(q, integrator, operator_type, coefficient);
@@ -264,12 +264,12 @@ Operator<dim, Number, n_components, coupling_coefficient>::do_boundary_integral(
                                                          operator_data.bc,
                                                          this->time);
 
-    value_type const value_flux = kernel->get_value_flux(coeff_times_normal_gradient_m,
-                                                         coeff_times_normal_gradient_p,
-                                                         value_m,
-                                                         value_p,
-                                                         normal_m,
-                                                         coefficient);
+    value_type const value_flux = kernel->calculate_value_flux(coeff_times_normal_gradient_m,
+                                                               coeff_times_normal_gradient_p,
+                                                               value_m,
+                                                               value_p,
+                                                               normal_m,
+                                                               coefficient);
 
     integrator.submit_gradient(gradient_flux, q);
     integrator.submit_value(value_flux, q);

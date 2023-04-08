@@ -130,10 +130,10 @@ public:
 
   static inline DEAL_II_ALWAYS_INLINE //
     gradient_type
-    get_gradient_flux(value_type const &       value_m,
-                      value_type const &       value_p,
-                      vector const &           normal,
-                      coefficient_type const & coefficient)
+    calculate_gradient_flux(value_type const &       value_m,
+                            value_type const &       value_p,
+                            vector const &           normal,
+                            coefficient_type const & coefficient)
   {
     value_type const    jump_value  = value_m - value_p;
     gradient_type const jump_tensor = outer_product(jump_value, normal);
@@ -143,12 +143,12 @@ public:
 
   inline DEAL_II_ALWAYS_INLINE //
     value_type
-    get_value_flux(gradient_type const &    gradient_m,
-                   gradient_type const &    gradient_p,
-                   value_type const &       value_m,
-                   value_type const &       value_p,
-                   vector const &           normal,
-                   coefficient_type const & coefficient)
+    calculate_value_flux(gradient_type const &    gradient_m,
+                         gradient_type const &    gradient_p,
+                         value_type const &       value_m,
+                         value_type const &       value_p,
+                         vector const &           normal,
+                         coefficient_type const & coefficient)
   {
     value_type const    jump_value  = value_m - value_p;
     gradient_type const jump_tensor = outer_product(jump_value, normal);
@@ -160,12 +160,12 @@ public:
 
   inline DEAL_II_ALWAYS_INLINE //
     value_type
-    get_value_flux(value_type const &       coeff_times_normal_gradient_m,
-                   value_type const &       coeff_times_normal_gradient_p,
-                   value_type const &       value_m,
-                   value_type const &       value_p,
-                   vector const &           normal,
-                   coefficient_type const & coefficient)
+    calculate_value_flux(value_type const &       coeff_times_normal_gradient_m,
+                         value_type const &       coeff_times_normal_gradient_p,
+                         value_type const &       value_m,
+                         value_type const &       value_p,
+                         vector const &           normal,
+                         coefficient_type const & coefficient)
   {
     value_type const    jump_value  = value_m - value_p;
     gradient_type const jump_tensor = outer_product(jump_value, normal);
