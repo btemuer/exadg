@@ -31,12 +31,12 @@
 
 namespace ExaDG
 {
-namespace GeneralizedLaplaceOperator
+namespace GeneralizedLaplace
 {
 namespace Operators
 {
 template<int dim, typename Number, int n_components = 1, bool coupling_coefficient = false>
-struct GeneralizedLaplaceKernelData
+struct KernelData
 {
 private:
   static constexpr unsigned int coefficient_rank =
@@ -55,7 +55,7 @@ public:
 };
 
 template<int dim, typename Number, int n_components = 1, bool coupling_coefficient = false>
-class GeneralizedLaplaceKernel
+class Kernel
 {
 private:
   using VectorType = dealii::LinearAlgebra::distributed::Vector<Number>;
@@ -77,11 +77,10 @@ private:
 
 public:
   void
-  reinit(
-    dealii::MatrixFree<dim, Number> const & matrix_free,
-    GeneralizedLaplaceKernelData<dim, Number, n_components, coupling_coefficient> const & data_in,
-    unsigned int const                                                                    dof_index,
-    unsigned int const quad_index)
+  reinit(dealii::MatrixFree<dim, Number> const &                             matrix_free,
+         KernelData<dim, Number, n_components, coupling_coefficient> const & data_in,
+         unsigned int const                                                  dof_index,
+         unsigned int const                                                  quad_index)
   {
     data   = data_in;
     degree = matrix_free.get_dof_handler(dof_index).get_fe().degree;
@@ -268,7 +267,7 @@ private:
       return coeff * x;
   }
 
-  GeneralizedLaplaceKernelData<dim, Number, n_components, coupling_coefficient> data{};
+  KernelData<dim, Number, n_components, coupling_coefficient> data{};
 
   unsigned int degree{1};
 
@@ -465,20 +464,17 @@ private:
 } // namespace Boundary
 
 template<int dim, typename Number, int n_components = 1, bool coupling_coefficient = false>
-struct GeneralizedLaplaceOperatorData : public OperatorBaseData
+struct OperatorData : public OperatorBaseData
 {
   static constexpr unsigned int value_rank = (n_components > 1) ? 1 : 0;
 
-  Operators::GeneralizedLaplaceKernelData<dim, Number, n_components, coupling_coefficient>
-    kernel_data{};
+  Operators::KernelData<dim, Number, n_components, coupling_coefficient> kernel_data{};
 
   std::shared_ptr<Boundary::BoundaryDescriptor<dim>> bc{};
-
-  // std::shared_ptr<Poisson::BoundaryDescriptor<value_rank, dim> const> bc{};
 };
 
 template<int dim, typename Number, int n_components = 1, bool coupling_coefficient = false>
-class GeneralizedLaplaceOperator : public OperatorBase<dim, Number, n_components>
+class Operator : public OperatorBase<dim, Number, n_components>
 {
 private:
   using scalar = dealii::VectorizedArray<Number>;
@@ -504,19 +500,17 @@ private:
 
 public:
   void
-  initialize(
-    dealii::MatrixFree<dim, Number> const &   matrix_free,
-    dealii::AffineConstraints<Number> const & affine_constraints,
-    GeneralizedLaplaceOperatorData<dim, Number, n_components, coupling_coefficient> const & data);
+  initialize(dealii::MatrixFree<dim, Number> const &   matrix_free,
+             dealii::AffineConstraints<Number> const & affine_constraints,
+             OperatorData<dim, Number, n_components, coupling_coefficient> const & data);
 
   void
   initialize(
-    dealii::MatrixFree<dim, Number> const &   matrix_free,
-    dealii::AffineConstraints<Number> const & affine_constraints,
-    GeneralizedLaplaceOperatorData<dim, Number, n_components, coupling_coefficient> const & data,
-    std::shared_ptr<
-      Operators::GeneralizedLaplaceKernel<dim, Number, n_components, coupling_coefficient>>
-      generalized_laplace_kernel);
+    dealii::MatrixFree<dim, Number> const &                               matrix_free,
+    dealii::AffineConstraints<Number> const &                             affine_constraints,
+    OperatorData<dim, Number, n_components, coupling_coefficient> const & data_in,
+    std::shared_ptr<Operators::Kernel<dim, Number, n_components, coupling_coefficient>> const
+      kernel_in);
 
   void
   update();
@@ -550,12 +544,10 @@ private:
                        OperatorType const &               operator_type,
                        dealii::types::boundary_id const & boundary_id) const override;
 
-  GeneralizedLaplaceOperatorData<dim, Number, n_components, coupling_coefficient> operator_data;
+  OperatorData<dim, Number, n_components, coupling_coefficient> operator_data;
 
-  std::shared_ptr<
-    Operators::GeneralizedLaplaceKernel<dim, Number, n_components, coupling_coefficient>>
-    kernel;
+  std::shared_ptr<Operators::Kernel<dim, Number, n_components, coupling_coefficient>> kernel;
 };
-} // namespace GeneralizedLaplaceOperator
+} // namespace GeneralizedLaplace
 } // namespace ExaDG
 #endif /* INCLUDE_EXADG_OPERATORS_GENERALIZED_LAPLACE_OPERATOR_H_ */

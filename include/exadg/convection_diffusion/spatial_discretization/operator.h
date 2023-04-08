@@ -399,17 +399,14 @@ private:
   /*
    * Basic operators.
    */
-  std::shared_ptr<Operators::ConvectiveKernel<dim, Number>> convective_kernel;
-  // std::shared_ptr<Operators::DiffusiveKernel<dim, Number>>  diffusive_kernel;
-  std::shared_ptr<GeneralizedLaplaceOperator::Operators::GeneralizedLaplaceKernel<dim, Number>>
-    diffusive_kernel;
+  std::shared_ptr<Operators::ConvectiveKernel<dim, Number>>           convective_kernel;
+  std::shared_ptr<GeneralizedLaplace::Operators::Kernel<dim, Number>> diffusive_kernel;
 
-  MassOperator<dim, 1, Number>        mass_operator;
-  InverseMassOperator<dim, 1, Number> inverse_mass_operator;
-  ConvectiveOperator<dim, Number>     convective_operator;
-  // DiffusiveOperator<dim, Number>      diffusive_operator;
-  GeneralizedLaplaceOperator::GeneralizedLaplaceOperator<dim, Number> diffusive_operator;
-  RHSOperator<dim, Number>                                            rhs_operator;
+  MassOperator<dim, 1, Number>              mass_operator;
+  InverseMassOperator<dim, 1, Number>       inverse_mass_operator;
+  ConvectiveOperator<dim, Number>           convective_operator;
+  GeneralizedLaplace::Operator<dim, Number> diffusive_operator;
+  RHSOperator<dim, Number>                  rhs_operator;
 
   /*
    * Combined operator.
