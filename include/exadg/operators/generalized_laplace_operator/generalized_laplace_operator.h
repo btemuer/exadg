@@ -280,6 +280,41 @@ private:
 
 namespace Boundary
 {
+enum class BoundaryType
+{
+  Undefined,
+  Dirichlet,
+  Neumann
+};
+
+template<int dim>
+class BoundaryDescriptor
+{
+private:
+  using bc_map = std::map<dealii::types::boundary_id, std::shared_ptr<dealii::Function<dim>>>;
+
+public:
+  BoundaryDescriptor(bc_map const & dirichlet_bc, bc_map const & neumann_bc)
+    : dirichlet_bc(dirichlet_bc), neumann_bc(neumann_bc){};
+
+  inline DEAL_II_ALWAYS_INLINE //
+    BoundaryType
+    get_boundary_type(dealii::types::boundary_id const & boundary_id) const
+  {
+    if(this->dirichlet_bc.find(boundary_id) != this->dirichlet_bc.end())
+      return BoundaryType::Dirichlet;
+    else if(this->neumann_bc.find(boundary_id) != this->neumann_bc.end())
+      return BoundaryType::Neumann;
+
+    AssertThrow(false, dealii::ExcMessage("Boundary type of face is invalid or not implemented."));
+
+    return BoundaryType::Undefined;
+  }
+
+  bc_map const & dirichlet_bc;
+  bc_map const & neumann_bc;
+};
+
 template<int dim, typename Number, int n_components, bool coupling_coefficient>
 struct WeakBoundaryConditions
 {
@@ -313,24 +348,23 @@ struct WeakBoundaryConditions
 
   static inline DEAL_II_ALWAYS_INLINE //
     value_type
-    calculate_exterior_value(
-      value_type const &                                                  value_m,
-      unsigned int const                                                  q,
-      FaceIntegrator<dim, n_components, Number> const &                   integrator,
-      OperatorType const &                                                operator_type,
-      Poisson::BoundaryType const &                                       boundary_type,
-      dealii::types::boundary_id const                                    boundary_id,
-      std::shared_ptr<Poisson::BoundaryDescriptor<value_rank, dim> const> boundary_descriptor,
-      double const &                                                      time)
+    calculate_exterior_value(value_type const &                                value_m,
+                             unsigned int const                                q,
+                             FaceIntegrator<dim, n_components, Number> const & integrator,
+                             OperatorType const &                              operator_type,
+                             BoundaryType const &                              boundary_type,
+                             dealii::types::boundary_id const                  boundary_id,
+                             std::shared_ptr<BoundaryDescriptor<dim> const>    boundary_descriptor,
+                             double const                                      time)
   {
-    if(boundary_type == Poisson::BoundaryType::Neumann)
+    if(boundary_type == BoundaryType::Neumann)
       return value_m;
 
     if(operator_type == OperatorType::full || operator_type == OperatorType::inhomogeneous)
     {
       value_type g{};
 
-      if(boundary_type == Poisson::BoundaryType::Dirichlet)
+      if(boundary_type == BoundaryType::Dirichlet)
       {
         auto const bc       = boundary_descriptor->dirichlet_bc.find(boundary_id)->second;
         auto const q_points = integrator.quadrature_point(q);
@@ -377,15 +411,15 @@ struct WeakBoundaryConditions
       unsigned int const                                q,
       FaceIntegrator<dim, n_components, Number> const & integrator,
       OperatorType const &                              operator_type,
-      Poisson::BoundaryType const &                     boundary_type,
+      BoundaryType const &                              boundary_type,
       dealii::types::boundary_id const                  boundary_id,
-      std::shared_ptr<Poisson::BoundaryDescriptor<value_rank, dim> const> boundary_descriptor,
-      double const &                                                      time)
+      std::shared_ptr<BoundaryDescriptor<dim> const>    boundary_descriptor,
+      double const                                      time)
   {
-    if(boundary_type == Poisson::BoundaryType::Dirichlet)
+    if(boundary_type == BoundaryType::Dirichlet)
       return coeff_times_normal_gradient_m;
 
-    if(boundary_type == Poisson::BoundaryType::Neumann)
+    if(boundary_type == BoundaryType::Neumann)
     {
       if(operator_type == OperatorType::full || operator_type == OperatorType::inhomogeneous)
       {
@@ -429,7 +463,9 @@ struct GeneralizedLaplaceOperatorData : public OperatorBaseData
   Operators::GeneralizedLaplaceKernelData<dim, Number, n_components, coupling_coefficient>
     kernel_data{};
 
-  std::shared_ptr<Poisson::BoundaryDescriptor<value_rank, dim> const> bc{};
+  std::shared_ptr<Boundary::BoundaryDescriptor<dim>> bc{};
+
+  // std::shared_ptr<Poisson::BoundaryDescriptor<value_rank, dim> const> bc{};
 };
 
 template<int dim, typename Number, int n_components = 1, bool coupling_coefficient = false>
