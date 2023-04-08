@@ -45,7 +45,8 @@ private:
   using scalar = dealii::VectorizedArray<Number>;
 
   using coefficient_function_type =
-    std::function<dealii::Tensor<coefficient_rank, dim, scalar>(unsigned int, unsigned int)>;
+    std::function<dealii::Tensor<coefficient_rank, dim, scalar>(unsigned int const,
+                                                                unsigned int const)>;
 
 public:
   double IP_factor{1.0};
@@ -311,9 +312,17 @@ public:
     return BoundaryType::Undefined;
   }
 
-  bc_map const & dirichlet_bc;
-  bc_map const & neumann_bc;
+  bc_map const dirichlet_bc;
+  bc_map const neumann_bc;
 };
+
+template<int dim, typename T>
+std::shared_ptr<BoundaryDescriptor<dim>>
+create_laplace_boundary_descriptor(T module_bc_descriptor)
+{
+  return std::make_shared<BoundaryDescriptor<dim>>(module_bc_descriptor->dirichlet_bc,
+                                                   module_bc_descriptor->neumann_bc);
+}
 
 template<int dim, typename Number, int n_components, bool coupling_coefficient>
 struct WeakBoundaryConditions
