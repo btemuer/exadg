@@ -100,7 +100,7 @@ Operator<dim, Number>::fill_matrix_free_data(MatrixFreeData<dim, Number> & matri
   if(param.diffusive_problem())
   {
     matrix_free_data.append_mapping_flags(
-      Operators::DiffusiveKernel<dim, Number>::get_mapping_flags(true, true));
+      GeneralizedLaplace::Operators::Kernel<dim, Number>::get_mapping_flags(true, true));
   }
 
   // dealii::DoFHandler, dealii::AffineConstraints
@@ -228,7 +228,7 @@ Operator<dim, Number>::setup(std::shared_ptr<dealii::MatrixFree<dim, Number>> ma
      (param.temporal_discretization == TemporalDiscretization::ExplRK &&
       param.use_combined_operator == true))
   {
-    CombinedOperatorData<dim> combined_operator_data;
+    CombinedOperatorData<dim, Number> combined_operator_data;
     combined_operator_data.bc                   = boundary_descriptor;
     combined_operator_data.use_cell_based_loops = param.use_cell_based_face_loops;
     combined_operator_data.implement_block_diagonal_preconditioner_matrix_free =
@@ -272,7 +272,7 @@ Operator<dim, Number>::setup(std::shared_ptr<dealii::MatrixFree<dim, Number>> ma
     }
 
     combined_operator_data.convective_kernel_data = convective_kernel_data;
-    // combined_operator_data.diffusive_kernel_data  = diffusive_kernel_data;
+    combined_operator_data.diffusive_kernel_data  = diffusive_kernel_data;
 
     combined_operator_data.dof_index = get_dof_index();
     combined_operator_data.quad_index =
@@ -280,13 +280,12 @@ Operator<dim, Number>::setup(std::shared_ptr<dealii::MatrixFree<dim, Number>> ma
         get_quad_index_overintegration() :
         get_quad_index();
 
-    /*
+
     combined_operator.initialize(*matrix_free,
                                  affine_constraints,
                                  combined_operator_data,
                                  convective_kernel,
                                  diffusive_kernel);
-   */
   }
 
   pcout << std::endl << "... done!" << std::endl;

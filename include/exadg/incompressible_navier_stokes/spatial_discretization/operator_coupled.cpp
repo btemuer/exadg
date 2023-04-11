@@ -712,16 +712,18 @@ OperatorCoupled<dim, Number>::setup_pressure_convection_diffusion_operator()
   // diffusive operator:
   // take interior penalty factor of diffusivity of viscous operator, but use polynomial degree of
   // pressure shape functions.
-  ConvDiff::Operators::DiffusiveKernelData diffusive_kernel_data;
+  GeneralizedLaplace::Operators::KernelData<dim, Number> diffusive_kernel_data;
   diffusive_kernel_data.IP_factor = this->param.IP_factor_viscous;
   // Note: the diffusive operator is initialized with constant viscosity. In case of spatially (and
   // temporally) varying viscosities the diffusive operator has to be extended so that it can deal
   // with variable coefficients (and should be updated in case of time dependent problems before
   // applying the preconditioner).
-  diffusive_kernel_data.diffusivity = this->param.viscosity;
+  diffusive_kernel_data.coefficient_function = [this](unsigned int const, unsigned int const) {
+    return this->param.viscosity;
+  };
 
   // combined convection-diffusion operator
-  ConvDiff::CombinedOperatorData<dim> operator_data;
+  ConvDiff::CombinedOperatorData<dim, Number> operator_data;
   operator_data.dof_index  = this->get_dof_index_pressure();
   operator_data.quad_index = this->get_quad_index_pressure();
 

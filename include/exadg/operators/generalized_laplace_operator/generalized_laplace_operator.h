@@ -160,8 +160,8 @@ public:
 
   inline DEAL_II_ALWAYS_INLINE //
     value_type
-    calculate_value_flux(value_type const &       coeff_times_normal_gradient_m,
-                         value_type const &       coeff_times_normal_gradient_p,
+    calculate_value_flux(value_type const &       coeff_times_gradient_times_normal_m,
+                         value_type const &       coeff_times_gradient_times_normal_p,
                          value_type const &       value_m,
                          value_type const &       value_p,
                          vector const &           normal,
@@ -171,7 +171,7 @@ public:
     gradient_type const jump_tensor = outer_product(jump_value, normal);
 
     value_type const average_coeff_times_normal_gradient =
-      0.5 * (coeff_times_normal_gradient_m + coeff_times_normal_gradient_p);
+      0.5 * (coeff_times_gradient_times_normal_m + coeff_times_gradient_times_normal_p);
 
     return -(average_coeff_times_normal_gradient +
              value_type(coeff_mult(coefficient, (tau * jump_tensor)) * normal));
@@ -415,7 +415,7 @@ struct WeakBoundaryConditions
   static inline DEAL_II_ALWAYS_INLINE //
     value_type
     calculate_exterior_coeff_times_normal_gradient(
-      value_type const &                                coeff_times_normal_gradient_m,
+      value_type const &                                coeff_times_gradient_times_normal_m,
       unsigned int const                                q,
       FaceIntegrator<dim, n_components, Number> const & integrator,
       OperatorType const &                              operator_type,
@@ -425,7 +425,7 @@ struct WeakBoundaryConditions
       double const                                      time)
   {
     if(boundary_type == BoundaryType::Dirichlet)
-      return coeff_times_normal_gradient_m;
+      return coeff_times_gradient_times_normal_m;
 
     if(boundary_type == BoundaryType::Neumann)
     {
@@ -436,10 +436,10 @@ struct WeakBoundaryConditions
 
         auto const h = FunctionEvaluator<value_rank, dim, Number>::value(bc, q_points, time);
 
-        return coeff_times_normal_gradient_m + value_type(2.0 * h);
+        return coeff_times_gradient_times_normal_m + value_type(2.0 * h);
       }
       else if(operator_type == OperatorType::homogeneous)
-        return -coeff_times_normal_gradient_m;
+        return -coeff_times_gradient_times_normal_m;
       else
         AssertThrow(false, dealii::ExcNotImplemented());
     }
