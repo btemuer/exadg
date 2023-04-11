@@ -186,14 +186,13 @@ Operator<dim, Number>::setup(std::shared_ptr<dealii::MatrixFree<dim, Number>> ma
 
   // diffusive operator
 
-  GeneralizedLaplace::Operators::KernelData<dim, Number> diffusive_kernel_data;
+  GeneralizedLaplace::Operators::KernelData<dim> diffusive_kernel_data;
 
   if(param.diffusive_problem())
   {
-    diffusive_kernel_data.IP_factor            = param.IP_factor;
-    diffusive_kernel_data.coefficient_function = [this](unsigned int const, unsigned int const) {
-      return param.diffusivity;
-    };
+    diffusive_kernel_data.IP_factor = param.IP_factor;
+    diffusive_kernel_data.coefficient_function =
+      std::make_shared<dealii::Functions::ConstantFunction<dim>>(param.diffusivity);
 
     diffusive_kernel = std::make_shared<GeneralizedLaplace::Operators::Kernel<dim, Number>>();
     diffusive_kernel->reinit(*matrix_free,
@@ -228,7 +227,7 @@ Operator<dim, Number>::setup(std::shared_ptr<dealii::MatrixFree<dim, Number>> ma
      (param.temporal_discretization == TemporalDiscretization::ExplRK &&
       param.use_combined_operator == true))
   {
-    CombinedOperatorData<dim, Number> combined_operator_data;
+    CombinedOperatorData<dim> combined_operator_data;
     combined_operator_data.bc                   = boundary_descriptor;
     combined_operator_data.use_cell_based_loops = param.use_cell_based_face_loops;
     combined_operator_data.implement_block_diagonal_preconditioner_matrix_free =

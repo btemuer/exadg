@@ -72,7 +72,7 @@ template<typename coefficient_type>
 class VariableCoefficients
 {
 public:
-  template<int dim, typename Number, typename T = coefficient_type>
+  template<int dim, typename Number, typename T>
   void
   initialize(dealii::MatrixFree<dim, Number> const & matrix_free,
              unsigned int const                      quad_index,
@@ -170,7 +170,8 @@ private:
   }
 
   void
-  fill(std::function<coefficient_type(unsigned int, unsigned int)> const & coefficient_function)
+  fill(std::function<coefficient_type(unsigned int const, unsigned int const)> const &
+         coefficient_function)
   {
     unsigned int const n_cells = coefficients_cell.size(0);
     unsigned int const n_faces = coefficients_face.size(0);

@@ -36,7 +36,7 @@ void
 CombinedOperator<dim, Number>::initialize(
   dealii::MatrixFree<dim, Number> const &   matrix_free,
   dealii::AffineConstraints<Number> const & affine_constraints,
-  CombinedOperatorData<dim, Number> const & data)
+  CombinedOperatorData<dim> const &         data)
 {
   operator_data = data;
 
@@ -81,7 +81,7 @@ void
 CombinedOperator<dim, Number>::initialize(
   dealii::MatrixFree<dim, Number> const &                             matrix_free,
   dealii::AffineConstraints<Number> const &                           affine_constraints,
-  CombinedOperatorData<dim, Number> const &                           data,
+  CombinedOperatorData<dim> const &                                   data,
   std::shared_ptr<Operators::ConvectiveKernel<dim, Number>>           convective_kernel_in,
   std::shared_ptr<GeneralizedLaplace::Operators::Kernel<dim, Number>> diffusive_kernel_in)
 {
@@ -110,7 +110,7 @@ CombinedOperator<dim, Number>::initialize(
 }
 
 template<int dim, typename Number>
-CombinedOperatorData<dim, Number> const &
+CombinedOperatorData<dim> const &
 CombinedOperator<dim, Number>::get_data() const
 {
   return operator_data;

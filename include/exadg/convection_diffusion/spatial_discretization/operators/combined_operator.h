@@ -30,7 +30,7 @@ namespace ExaDG
 {
 namespace ConvDiff
 {
-template<int dim, typename Number>
+template<int dim>
 struct CombinedOperatorData : public OperatorBaseData
 {
   CombinedOperatorData()
@@ -45,8 +45,8 @@ struct CombinedOperatorData : public OperatorBaseData
   bool convective_problem;
   bool diffusive_problem;
 
-  Operators::ConvectiveKernelData<dim>                   convective_kernel_data;
-  GeneralizedLaplace::Operators::KernelData<dim, Number> diffusive_kernel_data;
+  Operators::ConvectiveKernelData<dim>           convective_kernel_data;
+  GeneralizedLaplace::Operators::KernelData<dim> diffusive_kernel_data;
 
   std::shared_ptr<BoundaryDescriptor<dim> const> bc;
 };
@@ -74,16 +74,16 @@ public:
   void
   initialize(dealii::MatrixFree<dim, Number> const &   matrix_free,
              dealii::AffineConstraints<Number> const & affine_constraints,
-             CombinedOperatorData<dim, Number> const & data);
+             CombinedOperatorData<dim> const &         data);
 
   void
   initialize(dealii::MatrixFree<dim, Number> const &                             matrix_free,
              dealii::AffineConstraints<Number> const &                           affine_constraints,
-             CombinedOperatorData<dim, Number> const &                           data,
+             CombinedOperatorData<dim> const &                                   data,
              std::shared_ptr<Operators::ConvectiveKernel<dim, Number>>           convective_kernel,
              std::shared_ptr<GeneralizedLaplace::Operators::Kernel<dim, Number>> diffusive_kernel);
 
-  CombinedOperatorData<dim, Number> const &
+  CombinedOperatorData<dim> const &
   get_data() const;
 
   void
@@ -142,7 +142,7 @@ private:
   do_face_int_integral_cell_based(IntegratorFace & integrator_m,
                                   IntegratorFace & integrator_p) const;
 
-  CombinedOperatorData<dim, Number> operator_data;
+  CombinedOperatorData<dim> operator_data;
 
   std::shared_ptr<MassKernel<dim, Number>>                            mass_kernel;
   std::shared_ptr<Operators::ConvectiveKernel<dim, Number>>           convective_kernel;

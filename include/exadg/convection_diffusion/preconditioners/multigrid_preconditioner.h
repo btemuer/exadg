@@ -161,7 +161,7 @@ private:
   dealii::MGLevelObject<std::shared_ptr<dealii::AffineConstraints<MultigridNumber>>>
     constraints_velocity;
 
-  CombinedOperatorData<dim, Number> data;
+  CombinedOperatorData<dim> data;
 
   PDEOperator const * pde_operator;
 

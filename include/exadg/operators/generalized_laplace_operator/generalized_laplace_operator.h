@@ -35,23 +35,12 @@ namespace GeneralizedLaplace
 {
 namespace Operators
 {
-template<int dim, typename Number, int n_components = 1, bool coupling_coefficient = false>
+template<int dim>
 struct KernelData
 {
-private:
-  static constexpr unsigned int coefficient_rank =
-    (coupling_coefficient) ? ((n_components > 1) ? 4 : 2) : 0;
-
-  using scalar = dealii::VectorizedArray<Number>;
-
-  using coefficient_function_type =
-    std::function<dealii::Tensor<coefficient_rank, dim, scalar>(unsigned int const,
-                                                                unsigned int const)>;
-
-public:
   double IP_factor{1.0};
 
-  coefficient_function_type coefficient_function{};
+  std::shared_ptr<dealii::Function<dim>> coefficient_function{};
 };
 
 template<int dim, typename Number, int n_components = 1, bool coupling_coefficient = false>
@@ -77,17 +66,17 @@ private:
 
 public:
   void
-  reinit(dealii::MatrixFree<dim, Number> const &                             matrix_free,
-         KernelData<dim, Number, n_components, coupling_coefficient> const & data_in,
-         unsigned int const                                                  dof_index,
-         unsigned int const                                                  quad_index)
+  reinit(dealii::MatrixFree<dim, Number> const & matrix_free,
+         KernelData<dim> const &                 data_in,
+         unsigned int const                      dof_index,
+         unsigned int const                      quad_index)
   {
     data   = data_in;
     degree = matrix_free.get_dof_handler(dof_index).get_fe().degree;
 
     calculate_penalty_parameter(matrix_free, dof_index);
 
-    coefficients.initialize(matrix_free, quad_index, data.coefficient_function);
+    coefficients.initialize(matrix_free, quad_index, coefficient_type{});
   }
 
   static IntegratorFlags
@@ -188,7 +177,7 @@ public:
   calculate_coefficients(dealii::MatrixFree<dim, Number> const & matrix_free,
                          unsigned int const                      quad_index)
   {
-    coefficients.initialize(matrix_free, quad_index, data.coefficient_function);
+    coefficients.initialize(matrix_free, quad_index, coefficient_type{});
   }
 
   coefficient_type
@@ -267,7 +256,7 @@ private:
       return coeff * x;
   }
 
-  KernelData<dim, Number, n_components, coupling_coefficient> data{};
+  KernelData<dim> data{};
 
   unsigned int degree{1};
 
@@ -468,7 +457,7 @@ struct OperatorData : public OperatorBaseData
 {
   static constexpr unsigned int value_rank = (n_components > 1) ? 1 : 0;
 
-  Operators::KernelData<dim, Number, n_components, coupling_coefficient> kernel_data{};
+  Operators::KernelData<dim> kernel_data{};
 
   std::shared_ptr<Boundary::BoundaryDescriptor<dim>> bc{};
 };
