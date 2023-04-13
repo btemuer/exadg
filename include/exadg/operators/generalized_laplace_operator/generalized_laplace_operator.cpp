@@ -251,17 +251,20 @@ Operator<dim, Number, n_components, coupling_coefficient>::do_boundary_integral(
       kernel->calculate_gradient_flux(value_m, value_p, normal_m, coefficient);
 
     value_type const coeff_times_normal_gradient_m =
-      BC::calculate_interior_coeff_times_normal_gradient(q, integrator, operator_type, coefficient);
+      BC::calculate_interior_coeff_times_gradient_times_normal(q,
+                                                               integrator,
+                                                               operator_type,
+                                                               coefficient);
 
     value_type const coeff_times_normal_gradient_p =
-      BC::calculate_exterior_coeff_times_normal_gradient(coeff_times_normal_gradient_m,
-                                                         q,
-                                                         integrator,
-                                                         operator_type,
-                                                         boundary_type,
-                                                         boundary_id,
-                                                         operator_data.bc,
-                                                         this->time);
+      BC::calculate_exterior_coeff_times_gradient_times_normal(coeff_times_normal_gradient_m,
+                                                               q,
+                                                               integrator,
+                                                               operator_type,
+                                                               boundary_type,
+                                                               boundary_id,
+                                                               operator_data.bc,
+                                                               this->time);
 
     value_type const value_flux = kernel->calculate_value_flux(coeff_times_normal_gradient_m,
                                                                coeff_times_normal_gradient_p,

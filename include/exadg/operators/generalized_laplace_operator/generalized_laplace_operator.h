@@ -428,7 +428,7 @@ struct WeakBoundaryConditions
 
   static inline DEAL_II_ALWAYS_INLINE //
     value_type
-    calculate_interior_coeff_times_normal_gradient(
+    calculate_interior_coeff_times_gradient_times_normal(
       unsigned int const                                q,
       FaceIntegrator<dim, n_components, Number> const & integrator,
       OperatorType const &                              operator_type,
@@ -447,7 +447,7 @@ struct WeakBoundaryConditions
 
   static inline DEAL_II_ALWAYS_INLINE //
     value_type
-    calculate_exterior_coeff_times_normal_gradient(
+    calculate_exterior_coeff_times_gradient_times_normal(
       value_type const &                                coeff_times_gradient_times_normal_m,
       unsigned int const                                q,
       FaceIntegrator<dim, n_components, Number> const & integrator,
