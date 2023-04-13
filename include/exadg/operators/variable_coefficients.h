@@ -71,23 +71,45 @@ private:
 template<typename coefficient_type>
 class VariableCoefficients
 {
+private:
+  using coefficient_function_type =
+    std::function<coefficient_type(unsigned int const, unsigned int const)>;
+
 public:
-  template<int dim, typename Number, typename T>
+  template<int dim, typename Number>
   void
   initialize(dealii::MatrixFree<dim, Number> const & matrix_free,
              unsigned int const                      quad_index,
-             T const &                               coefficient)
+             coefficient_type const &                coefficient)
   {
     reinit(matrix_free, quad_index);
 
     fill(coefficient);
   }
 
-  template<typename F>
+  template<int dim, typename Number>
   void
-  set_cofficients(F const & coefficient_function)
+  initialize(dealii::MatrixFree<dim, Number> const & matrix_free,
+             unsigned int const                      quad_index,
+             coefficient_function_type const &       cell_coefficient_function,
+             coefficient_function_type const &       face_coefficient_function)
   {
-    fill(coefficient_function);
+    reinit(matrix_free, quad_index);
+
+    fill(cell_coefficient_function, face_coefficient_function);
+  }
+
+  void
+  set_cofficients(coefficient_type const & constant_coefficient)
+  {
+    fill(constant_coefficient);
+  }
+
+  void
+  set_cofficients(coefficient_function_type const & cell_coefficient_function,
+                  coefficient_function_type const & face_coefficient_function)
+  {
+    fill(cell_coefficient_function, face_coefficient_function);
   }
 
   coefficient_type
@@ -170,8 +192,8 @@ private:
   }
 
   void
-  fill(std::function<coefficient_type(unsigned int const, unsigned int const)> const &
-         coefficient_function)
+  fill(coefficient_function_type const & cell_coefficient_function,
+       coefficient_function_type const & face_coefficient_function)
   {
     unsigned int const n_cells = coefficients_cell.size(0);
     unsigned int const n_faces = coefficients_face.size(0);
@@ -181,11 +203,11 @@ private:
 
     for(unsigned int cell = 0; cell < n_cells; ++cell)
       for(unsigned int q = 0; q < n_cell_q_points; ++q)
-        set_coefficient_cell(cell, q, coefficient_function(cell, q));
+        set_coefficient_cell(cell, q, cell_coefficient_function(cell, q));
 
     for(unsigned int face = 0; face < n_faces; ++face)
       for(unsigned int q = 0; q < n_face_q_points; ++q)
-        set_coefficient_face(face, q, coefficient_function(face, q));
+        set_coefficient_face(face, q, face_coefficient_function(face, q));
   }
 
   void
