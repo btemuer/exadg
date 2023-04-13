@@ -59,6 +59,21 @@ OperatorCoupled<dim, Number>::~OperatorCoupled()
 
 template<int dim, typename Number>
 void
+OperatorCoupled<dim, Number>::fill_matrix_free_data(
+  MatrixFreeData<dim, Number> & matrix_free_data) const
+{
+  Base::fill_matrix_free_data(matrix_free_data);
+
+  if(this->param.preconditioner_pressure_block ==
+     SchurComplementPreconditioner::PressureConvectionDiffusion)
+  {
+    matrix_free_data.append_mapping_flags(
+      GeneralizedLaplace::Operators::Kernel<dim, Number>::get_mapping_flags(true, true));
+  }
+}
+
+template<int dim, typename Number>
+void
 OperatorCoupled<dim, Number>::setup(std::shared_ptr<dealii::MatrixFree<dim, Number>> matrix_free,
                                     std::shared_ptr<MatrixFreeData<dim, Number>> matrix_free_data,
                                     std::string const & dof_index_temperature)
