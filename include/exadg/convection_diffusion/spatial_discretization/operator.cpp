@@ -200,7 +200,7 @@ Operator<dim, Number>::setup(std::shared_ptr<dealii::MatrixFree<dim, Number>> ma
                              get_dof_index(),
                              get_quad_index());
 
-    GeneralizedLaplace::OperatorData<dim, Number> diffusive_operator_data;
+    GeneralizedLaplace::OperatorData<dim> diffusive_operator_data;
     diffusive_operator_data.dof_index  = get_dof_index();
     diffusive_operator_data.quad_index = get_quad_index();
     diffusive_operator_data.bc =

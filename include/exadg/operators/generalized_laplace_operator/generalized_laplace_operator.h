@@ -202,8 +202,8 @@ public:
 
   void
   update_coefficients(dealii::MatrixFree<dim, Number> const & matrix_free,
-                         unsigned int const                      quad_index,
-                         double const                            time)
+                      unsigned int const                      quad_index,
+                      double const                            time)
   {
     auto const cell_coefficient_function = [&](unsigned int const cell, unsigned int const q) {
       IntegratorCell integrator(matrix_free, {}, quad_index);
@@ -496,11 +496,9 @@ private:
 };
 } // namespace Boundary
 
-template<int dim, typename Number, int n_components = 1, bool coupling_coefficient = false>
+template<int dim>
 struct OperatorData : public OperatorBaseData
 {
-  static constexpr unsigned int value_rank = (n_components > 1) ? 1 : 0;
-
   Operators::KernelData<dim> kernel_data{};
 
   std::shared_ptr<Boundary::BoundaryDescriptor<dim>> bc{};
@@ -535,15 +533,14 @@ public:
   void
   initialize(dealii::MatrixFree<dim, Number> const &   matrix_free,
              dealii::AffineConstraints<Number> const & affine_constraints,
-             OperatorData<dim, Number, n_components, coupling_coefficient> const & data);
+             OperatorData<dim> const &                 data);
 
   void
   initialize(
-    dealii::MatrixFree<dim, Number> const &                               matrix_free,
-    dealii::AffineConstraints<Number> const &                             affine_constraints,
-    OperatorData<dim, Number, n_components, coupling_coefficient> const & data_in,
-    std::shared_ptr<Operators::Kernel<dim, Number, n_components, coupling_coefficient>> const
-      kernel_in);
+    dealii::MatrixFree<dim, Number> const &   matrix_free,
+    dealii::AffineConstraints<Number> const & affine_constraints,
+    OperatorData<dim> const &                 data_in,
+    std::shared_ptr<Operators::Kernel<dim, Number, n_components, coupling_coefficient>> kernel_in);
 
   void
   update_coefficients();
@@ -577,7 +574,7 @@ private:
                        OperatorType const &               operator_type,
                        dealii::types::boundary_id const & boundary_id) const override;
 
-  OperatorData<dim, Number, n_components, coupling_coefficient> operator_data;
+  OperatorData<dim> operator_data;
 
   std::shared_ptr<Operators::Kernel<dim, Number, n_components, coupling_coefficient>> kernel;
 };
