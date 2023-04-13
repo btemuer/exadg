@@ -366,8 +366,7 @@ struct WeakBoundaryConditions
   static constexpr unsigned int coefficient_rank =
     (coupling_coefficient) ? ((n_components > 1) ? 4 : 2) : 0;
 
-  using value_type    = dealii::Tensor<value_rank, dim, scalar>;
-  using gradient_type = dealii::Tensor<value_rank + 1, dim, scalar>;
+  using value_type = dealii::Tensor<value_rank, dim, scalar>;
 
   using coefficient_type = dealii::Tensor<coefficient_rank, dim, scalar>;
 
