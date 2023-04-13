@@ -194,10 +194,22 @@ public:
                                                                      {});
     };
 
+    auto const cell_based_face_coefficient_function = [&](unsigned int const cell,
+                                                          unsigned int const face,
+                                                          unsigned int const q) {
+      IntegratorFace integrator(matrix_free, true /* work like an interior face */, {}, quad_index);
+      integrator.reinit(cell, face);
+      return FunctionEvaluator<coefficient_rank, dim, Number>::value(data.coefficient_function,
+                                                                     integrator.quadrature_point(q),
+                                                                     {});
+    };
+
     coefficients.initialize(matrix_free,
                             quad_index,
                             cell_coefficient_function,
-                            face_coefficient_function);
+                            face_coefficient_function,
+                            {},
+                            cell_based_face_coefficient_function);
   }
 
   void
@@ -221,7 +233,20 @@ public:
                                                                      time);
     };
 
-    coefficients.set_coefficients(cell_coefficient_function, face_coefficient_function);
+    auto const cell_based_face_coefficient_function = [&](unsigned int const cell,
+                                                          unsigned int const face,
+                                                          unsigned int const q) {
+      IntegratorFace integrator(matrix_free, true /* work like an interior face */, {}, quad_index);
+      integrator.reinit(cell, face);
+      return FunctionEvaluator<coefficient_rank, dim, Number>::value(data.coefficient_function,
+                                                                     integrator.quadrature_point(q),
+                                                                     time);
+    };
+
+    coefficients.set_coefficients(cell_coefficient_function,
+                                  face_coefficient_function,
+                                  {},
+                                  cell_based_face_coefficient_function);
   }
 
   coefficient_type
