@@ -546,9 +546,6 @@ public:
       kernel_in);
 
   void
-  update();
-
-  void
   update_coefficients();
 
 private:
