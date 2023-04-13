@@ -64,7 +64,13 @@ void
 Operator<dim, Number, n_components, coupling_coefficient>::update()
 {
   kernel->calculate_penalty_parameter(this->get_matrix_free(), operator_data.dof_index);
-  kernel->calculate_coefficients(this->get_matrix_free(), operator_data.quad_index);
+}
+
+template<int dim, typename Number, int n_components, bool coupling_coefficient>
+void
+Operator<dim, Number, n_components, coupling_coefficient>::update_coefficients()
+{
+  kernel->update_coefficients(this->get_matrix_free(), operator_data.quad_index, this->time);
 }
 
 template<int dim, typename Number, int n_components, bool coupling_coefficient>

@@ -76,7 +76,7 @@ public:
 
     calculate_penalty_parameter(matrix_free, dof_index);
 
-    calculate_coefficients(matrix_free, quad_index);
+    reinit_coefficients(matrix_free, quad_index);
   }
 
   static IntegratorFlags
@@ -175,15 +175,15 @@ public:
   }
 
   void
-  calculate_coefficients(dealii::MatrixFree<dim, Number> const & matrix_free,
-                         unsigned int const                      quad_index)
+  reinit_coefficients(dealii::MatrixFree<dim, Number> const & matrix_free,
+                      unsigned int const                      quad_index)
   {
     auto const cell_coefficient_function = [&](unsigned int const cell, unsigned int const q) {
       IntegratorCell integrator(matrix_free, {}, quad_index);
       integrator.reinit(cell);
       return FunctionEvaluator<coefficient_rank, dim, Number>::value(data.coefficient_function,
                                                                      integrator.quadrature_point(q),
-                                                                     0.0);
+                                                                     {});
     };
 
     auto const face_coefficient_function = [&](unsigned int const face, unsigned int const q) {
@@ -191,13 +191,37 @@ public:
       integrator.reinit(face);
       return FunctionEvaluator<coefficient_rank, dim, Number>::value(data.coefficient_function,
                                                                      integrator.quadrature_point(q),
-                                                                     0.0);
+                                                                     {});
     };
 
     coefficients.initialize(matrix_free,
                             quad_index,
                             cell_coefficient_function,
                             face_coefficient_function);
+  }
+
+  void
+  update_coefficients(dealii::MatrixFree<dim, Number> const & matrix_free,
+                         unsigned int const                      quad_index,
+                         double const                            time)
+  {
+    auto const cell_coefficient_function = [&](unsigned int const cell, unsigned int const q) {
+      IntegratorCell integrator(matrix_free, {}, quad_index);
+      integrator.reinit(cell);
+      return FunctionEvaluator<coefficient_rank, dim, Number>::value(data.coefficient_function,
+                                                                     integrator.quadrature_point(q),
+                                                                     time);
+    };
+
+    auto const face_coefficient_function = [&](unsigned int const face, unsigned int const q) {
+      IntegratorFace integrator(matrix_free, true /* work like an interior face */, {}, quad_index);
+      integrator.reinit(face);
+      return FunctionEvaluator<coefficient_rank, dim, Number>::value(data.coefficient_function,
+                                                                     integrator.quadrature_point(q),
+                                                                     time);
+    };
+
+    coefficients.set_coefficients(cell_coefficient_function, face_coefficient_function);
   }
 
   coefficient_type
@@ -523,6 +547,9 @@ public:
 
   void
   update();
+
+  void
+  update_coefficients();
 
 private:
   void
