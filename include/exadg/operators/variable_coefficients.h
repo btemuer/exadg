@@ -100,13 +100,13 @@ public:
   }
 
   void
-  set_cofficients(coefficient_type const & constant_coefficient)
+  set_coefficients(coefficient_type const & constant_coefficient)
   {
     fill(constant_coefficient);
   }
 
   void
-  set_cofficients(coefficient_function_type const & cell_coefficient_function,
+  set_coefficients(coefficient_function_type const & cell_coefficient_function,
                   coefficient_function_type const & face_coefficient_function)
   {
     fill(cell_coefficient_function, face_coefficient_function);
