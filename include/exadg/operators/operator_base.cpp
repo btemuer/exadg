@@ -624,7 +624,9 @@ OperatorBase<dim, Number, n_components>::apply_add_block_diagonal_elementwise(
       }
       else // boundary face
       {
-        this->do_boundary_integral(*integrator_m, OperatorType::homogeneous, bid);
+        this->do_boundary_integral_cell_based(*integrator_m, OperatorType::homogeneous, bid);
+        // TODO make this cell-based just like do_face_int AMK
+        // add do_boundary_integral_cell_based to the combined operator
       }
 
       integrator_m->integrate(integrator_flags.face_integrate);
@@ -926,6 +928,16 @@ OperatorBase<dim, Number, n_components>::do_face_int_integral_cell_based(
   IntegratorFace & integrator_p) const
 {
   this->do_face_int_integral(integrator_m, integrator_p);
+}
+
+template<int dim, typename Number, int n_components>
+void
+OperatorBase<dim, Number, n_components>::do_boundary_integral_cell_based(
+  IntegratorFace &                   integrator,
+  ExaDG::OperatorType const &        operator_type,
+  dealii::types::boundary_id const & boundary_id) const
+{
+  this->do_boundary_integral(integrator, operator_type, boundary_id);
 }
 
 template<int dim, typename Number, int n_components>
@@ -1355,7 +1367,7 @@ OperatorBase<dim, Number, n_components>::cell_based_loop_diagonal(
         }
         else // boundary face
         {
-          this->do_boundary_integral(*integrator_m, OperatorType::homogeneous, bid);
+          this->do_boundary_integral_cell_based(*integrator_m, OperatorType::homogeneous, bid);
         }
 
         integrator_m->integrate(integrator_flags.face_integrate);
@@ -1631,7 +1643,7 @@ OperatorBase<dim, Number, n_components>::cell_based_loop_block_diagonal(
         }
         else // boundary face
         {
-          this->do_boundary_integral(*integrator_m, OperatorType::homogeneous, bid);
+          this->do_boundary_integral_cell_based(*integrator_m, OperatorType::homogeneous, bid);
         }
 
         integrator_m->integrate(integrator_flags.face_integrate);

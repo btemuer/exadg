@@ -198,7 +198,8 @@ Operator<dim, Number>::setup(std::shared_ptr<dealii::MatrixFree<dim, Number>> ma
     diffusive_kernel->reinit(*matrix_free,
                              diffusive_kernel_data,
                              get_dof_index(),
-                             get_quad_index());
+                             get_quad_index(),
+                             param.use_cell_based_face_loops);
 
     GeneralizedLaplace::OperatorData<dim> diffusive_operator_data;
     diffusive_operator_data.dof_index  = get_dof_index();

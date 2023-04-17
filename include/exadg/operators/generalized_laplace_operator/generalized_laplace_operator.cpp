@@ -36,7 +36,11 @@ Operator<dim, Number, n_components, coupling_coefficient>::initialize(
 
   operator_data = data;
 
-  kernel->reinit(matrix_free, data.kernel_data, data.dof_index, data.quad_index);
+  kernel->reinit(matrix_free,
+                 data.kernel_data,
+                 data.dof_index,
+                 data.quad_index,
+                 operator_data.use_cell_based_loops);
 
   this->integrator_flags = kernel->get_integrator_flags();
 }
@@ -187,6 +191,39 @@ Operator<dim, Number, n_components, coupling_coefficient>::do_face_int_integral(
 
 template<int dim, typename Number, int n_components, bool coupling_coefficient>
 void
+Operator<dim, Number, n_components, coupling_coefficient>::do_face_int_integral_cell_based(
+  IntegratorFace & integrator_m,
+  IntegratorFace & integrator_p) const
+{
+  (void)integrator_p;
+
+  for(unsigned int q = 0; q < integrator_m.n_q_points; ++q)
+  {
+    unsigned int const face = integrator_m.get_current_cell_index();
+
+    value_type const value_m = integrator_m.get_value(q);
+    value_type const value_p; // set exterior values to zero
+
+    gradient_type const gradient_m = integrator_m.get_gradient(q);
+    gradient_type const gradient_p; // set exterior gradients to zero
+
+    vector const normal_m = integrator_m.get_normal_vector(q);
+
+    coefficient_type const coefficient = kernel->get_coefficient_face_cell_based(face, q);
+
+    gradient_type const gradient_flux =
+      kernel->calculate_gradient_flux(value_m, value_p, normal_m, coefficient);
+
+    value_type const value_flux =
+      kernel->calculate_value_flux(gradient_m, gradient_p, value_m, value_p, normal_m, coefficient);
+
+    integrator_m.submit_gradient(gradient_flux, q);
+    integrator_m.submit_value(value_flux, q);
+  }
+}
+
+template<int dim, typename Number, int n_components, bool coupling_coefficient>
+void
 Operator<dim, Number, n_components, coupling_coefficient>::do_face_ext_integral(
   IntegratorFace & integrator_m,
   IntegratorFace & integrator_p) const
@@ -246,6 +283,65 @@ Operator<dim, Number, n_components, coupling_coefficient>::do_boundary_integral(
     vector const normal_m = integrator.get_normal_vector(q);
 
     coefficient_type const coefficient = kernel->get_coefficient_face(face, q);
+
+    gradient_type const gradient_flux =
+      kernel->calculate_gradient_flux(value_m, value_p, normal_m, coefficient);
+
+    value_type const coeff_times_normal_gradient_m =
+      BC::calculate_interior_coeff_times_gradient_times_normal(q,
+                                                               integrator,
+                                                               operator_type,
+                                                               coefficient);
+
+    value_type const coeff_times_normal_gradient_p =
+      BC::calculate_exterior_coeff_times_gradient_times_normal(coeff_times_normal_gradient_m,
+                                                               q,
+                                                               integrator,
+                                                               operator_type,
+                                                               boundary_type,
+                                                               boundary_id,
+                                                               operator_data.bc,
+                                                               this->time);
+
+    value_type const value_flux = kernel->calculate_value_flux(coeff_times_normal_gradient_m,
+                                                               coeff_times_normal_gradient_p,
+                                                               value_m,
+                                                               value_p,
+                                                               normal_m,
+                                                               coefficient);
+
+    integrator.submit_gradient(gradient_flux, q);
+    integrator.submit_value(value_flux, q);
+  }
+}
+
+template<int dim, typename Number, int n_components, bool coupling_coefficient>
+void
+Operator<dim, Number, n_components, coupling_coefficient>::do_boundary_integral_cell_based(
+  IntegratorFace &                   integrator,
+  const OperatorType &               operator_type,
+  const dealii::types::boundary_id & boundary_id) const
+{
+  auto const boundary_type = operator_data.bc->get_boundary_type(boundary_id);
+
+  for(unsigned int q = 0; q < integrator.n_q_points; ++q)
+  {
+    unsigned int const face = integrator.get_current_cell_index();
+
+    value_type const value_m = BC::calculate_interior_value(q, integrator, operator_type);
+
+    value_type const value_p = BC::calculate_exterior_value(value_m,
+                                                            q,
+                                                            integrator,
+                                                            operator_type,
+                                                            boundary_type,
+                                                            boundary_id,
+                                                            operator_data.bc,
+                                                            this->time);
+
+    vector const normal_m = integrator.get_normal_vector(q);
+
+    coefficient_type const coefficient = kernel->get_coefficient_face_cell_based(face, q);
 
     gradient_type const gradient_flux =
       kernel->calculate_gradient_flux(value_m, value_p, normal_m, coefficient);
