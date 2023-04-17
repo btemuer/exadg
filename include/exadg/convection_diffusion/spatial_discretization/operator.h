@@ -35,6 +35,7 @@
 #include <exadg/grid/grid.h>
 #include <exadg/grid/grid_motion_interface.h>
 #include <exadg/matrix_free/matrix_free_data.h>
+#include <exadg/operators/generalized_laplace_operator/generalized_laplace_operator.h>
 #include <exadg/operators/inverse_mass_operator.h>
 #include <exadg/operators/mass_operator.h>
 #include <exadg/operators/rhs_operator.h>
@@ -398,14 +399,14 @@ private:
   /*
    * Basic operators.
    */
-  std::shared_ptr<Operators::ConvectiveKernel<dim, Number>> convective_kernel;
-  std::shared_ptr<Operators::DiffusiveKernel<dim, Number>>  diffusive_kernel;
+  std::shared_ptr<Operators::ConvectiveKernel<dim, Number>>           convective_kernel;
+  std::shared_ptr<GeneralizedLaplace::Operators::Kernel<dim, Number>> diffusive_kernel;
 
-  MassOperator<dim, 1, Number>        mass_operator;
-  InverseMassOperator<dim, 1, Number> inverse_mass_operator;
-  ConvectiveOperator<dim, Number>     convective_operator;
-  DiffusiveOperator<dim, Number>      diffusive_operator;
-  RHSOperator<dim, Number>            rhs_operator;
+  MassOperator<dim, 1, Number>              mass_operator;
+  InverseMassOperator<dim, 1, Number>       inverse_mass_operator;
+  ConvectiveOperator<dim, Number>           convective_operator;
+  GeneralizedLaplace::Operator<dim, Number> diffusive_operator;
+  RHSOperator<dim, Number>                  rhs_operator;
 
   /*
    * Combined operator.

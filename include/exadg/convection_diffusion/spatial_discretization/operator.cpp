@@ -100,7 +100,7 @@ Operator<dim, Number>::fill_matrix_free_data(MatrixFreeData<dim, Number> & matri
   if(param.diffusive_problem())
   {
     matrix_free_data.append_mapping_flags(
-      Operators::DiffusiveKernel<dim, Number>::get_mapping_flags(true, true));
+      GeneralizedLaplace::Operators::Kernel<dim, Number>::get_mapping_flags(true, true));
   }
 
   // dealii::DoFHandler, dealii::AffineConstraints
@@ -185,24 +185,30 @@ Operator<dim, Number>::setup(std::shared_ptr<dealii::MatrixFree<dim, Number>> ma
   }
 
   // diffusive operator
-  Operators::DiffusiveKernelData diffusive_kernel_data;
+
+  GeneralizedLaplace::Operators::KernelData<dim> diffusive_kernel_data;
 
   if(param.diffusive_problem())
   {
-    diffusive_kernel_data.IP_factor   = param.IP_factor;
-    diffusive_kernel_data.diffusivity = param.diffusivity;
+    diffusive_kernel_data.IP_factor = param.IP_factor;
+    diffusive_kernel_data.coefficient_function =
+      std::make_shared<dealii::Functions::ConstantFunction<dim>>(param.diffusivity);
 
-    diffusive_kernel = std::make_shared<Operators::DiffusiveKernel<dim, Number>>();
-    diffusive_kernel->reinit(*matrix_free, diffusive_kernel_data, get_dof_index());
+    diffusive_kernel = std::make_shared<GeneralizedLaplace::Operators::Kernel<dim, Number>>();
+    diffusive_kernel->reinit(*matrix_free,
+                             diffusive_kernel_data,
+                             get_dof_index(),
+                             get_quad_index(),
+                             param.use_cell_based_face_loops);
 
-    DiffusiveOperatorData<dim> diffusive_operator_data;
-    diffusive_operator_data.dof_index            = get_dof_index();
-    diffusive_operator_data.quad_index           = get_quad_index();
-    diffusive_operator_data.bc                   = boundary_descriptor;
+    GeneralizedLaplace::OperatorData<dim> diffusive_operator_data;
+    diffusive_operator_data.dof_index  = get_dof_index();
+    diffusive_operator_data.quad_index = get_quad_index();
+    diffusive_operator_data.bc =
+      GeneralizedLaplace::Boundary::create_laplace_boundary_descriptor<dim>(boundary_descriptor);
     diffusive_operator_data.use_cell_based_loops = param.use_cell_based_face_loops;
     diffusive_operator_data.implement_block_diagonal_preconditioner_matrix_free =
       param.implement_block_diagonal_preconditioner_matrix_free;
-    diffusive_operator_data.kernel_data = diffusive_kernel_data;
 
     diffusive_operator.initialize(*matrix_free,
                                   affine_constraints,
@@ -273,6 +279,7 @@ Operator<dim, Number>::setup(std::shared_ptr<dealii::MatrixFree<dim, Number>> ma
       (param.use_overintegration && combined_operator_data.convective_problem) ?
         get_quad_index_overintegration() :
         get_quad_index();
+
 
     combined_operator.initialize(*matrix_free,
                                  affine_constraints,
@@ -848,6 +855,10 @@ Operator<dim, Number>::update_after_grid_motion()
   if(param.diffusive_problem())
   {
     diffusive_kernel->calculate_penalty_parameter(*matrix_free, get_dof_index());
+
+    // Do not update diffusivity after mesh deformation, i.e. assume that the diffusivity is based
+    // on the initial spatial coordinates, and not on the current position.
+    // TODO : discuss on this matter
   }
 }
 

@@ -23,7 +23,7 @@
 #define INCLUDE_EXADG_CONVECTION_DIFFUSION_SPATIAL_DISCRETIZATION_OPERATORS_COMBINED_OPERATOR_H_
 
 #include <exadg/convection_diffusion/spatial_discretization/operators/convective_operator.h>
-#include <exadg/convection_diffusion/spatial_discretization/operators/diffusive_operator.h>
+#include <exadg/operators/generalized_laplace_operator/generalized_laplace_operator.h>
 #include <exadg/operators/mass_kernel.h>
 
 namespace ExaDG
@@ -45,8 +45,8 @@ struct CombinedOperatorData : public OperatorBaseData
   bool convective_problem;
   bool diffusive_problem;
 
-  Operators::ConvectiveKernelData<dim> convective_kernel_data;
-  Operators::DiffusiveKernelData       diffusive_kernel_data;
+  Operators::ConvectiveKernelData<dim>           convective_kernel_data;
+  GeneralizedLaplace::Operators::KernelData<dim> diffusive_kernel_data;
 
   std::shared_ptr<BoundaryDescriptor<dim> const> bc;
 };
@@ -77,11 +77,11 @@ public:
              CombinedOperatorData<dim> const &         data);
 
   void
-  initialize(dealii::MatrixFree<dim, Number> const &                   matrix_free,
-             dealii::AffineConstraints<Number> const &                 affine_constraints,
-             CombinedOperatorData<dim> const &                         data,
-             std::shared_ptr<Operators::ConvectiveKernel<dim, Number>> convective_kernel,
-             std::shared_ptr<Operators::DiffusiveKernel<dim, Number>>  diffusive_kernel);
+  initialize(dealii::MatrixFree<dim, Number> const &                             matrix_free,
+             dealii::AffineConstraints<Number> const &                           affine_constraints,
+             CombinedOperatorData<dim> const &                                   data,
+             std::shared_ptr<Operators::ConvectiveKernel<dim, Number>>           convective_kernel,
+             std::shared_ptr<GeneralizedLaplace::Operators::Kernel<dim, Number>> diffusive_kernel);
 
   CombinedOperatorData<dim> const &
   get_data() const;
@@ -142,11 +142,16 @@ private:
   do_face_int_integral_cell_based(IntegratorFace & integrator_m,
                                   IntegratorFace & integrator_p) const;
 
+  void
+  do_boundary_integral_cell_based(IntegratorFace &                   integrator_m,
+                                  OperatorType const &               operator_type,
+                                  dealii::types::boundary_id const & boundary_id) const override;
+
   CombinedOperatorData<dim> operator_data;
 
-  std::shared_ptr<MassKernel<dim, Number>>                  mass_kernel;
-  std::shared_ptr<Operators::ConvectiveKernel<dim, Number>> convective_kernel;
-  std::shared_ptr<Operators::DiffusiveKernel<dim, Number>>  diffusive_kernel;
+  std::shared_ptr<MassKernel<dim, Number>>                            mass_kernel;
+  std::shared_ptr<Operators::ConvectiveKernel<dim, Number>>           convective_kernel;
+  std::shared_ptr<GeneralizedLaplace::Operators::Kernel<dim, Number>> diffusive_kernel;
 
   double scaling_factor_mass;
 };

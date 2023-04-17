@@ -350,6 +350,11 @@ protected:
   do_face_int_integral_cell_based(IntegratorFace & integrator_m,
                                   IntegratorFace & integrator_p) const;
 
+  virtual void
+  do_boundary_integral_cell_based(IntegratorFace &                   integrator,
+                                  OperatorType const &               operator_type,
+                                  dealii::types::boundary_id const & boundary_id) const;
+
   /*
    * Matrix-free object.
    */

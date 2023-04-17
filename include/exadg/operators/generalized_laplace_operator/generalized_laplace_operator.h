@@ -31,30 +31,20 @@
 
 namespace ExaDG
 {
-namespace GeneralizedLaplaceOperator
+namespace GeneralizedLaplace
 {
 namespace Operators
 {
-template<int dim, typename Number, int n_components = 1, bool coupling_coefficient = false>
-struct GeneralizedLaplaceKernelData
+template<int dim>
+struct KernelData
 {
-private:
-  static constexpr unsigned int coefficient_rank =
-    (coupling_coefficient) ? ((n_components > 1) ? 4 : 2) : 0;
-
-  using scalar = dealii::VectorizedArray<Number>;
-
-  using coefficient_function_type =
-    std::function<dealii::Tensor<coefficient_rank, dim, scalar>(unsigned int, unsigned int)>;
-
-public:
   double IP_factor{1.0};
 
-  coefficient_function_type coefficient_function{};
+  std::shared_ptr<dealii::Function<dim>> coefficient_function{};
 };
 
 template<int dim, typename Number, int n_components = 1, bool coupling_coefficient = false>
-class GeneralizedLaplaceKernel
+class Kernel
 {
 private:
   using VectorType = dealii::LinearAlgebra::distributed::Vector<Number>;
@@ -76,18 +66,18 @@ private:
 
 public:
   void
-  reinit(
-    dealii::MatrixFree<dim, Number> const & matrix_free,
-    GeneralizedLaplaceKernelData<dim, Number, n_components, coupling_coefficient> const & data_in,
-    unsigned int const                                                                    dof_index,
-    unsigned int const quad_index)
+  reinit(dealii::MatrixFree<dim, Number> const & matrix_free,
+         KernelData<dim> const &                 data_in,
+         unsigned int const                      dof_index,
+         unsigned int const                      quad_index,
+         bool const                              use_cell_based_loops)
   {
     data   = data_in;
     degree = matrix_free.get_dof_handler(dof_index).get_fe().degree;
 
     calculate_penalty_parameter(matrix_free, dof_index);
 
-    coefficients.initialize(matrix_free, quad_index, data.coefficient_function);
+    reinit_coefficients(matrix_free, quad_index, use_cell_based_loops);
   }
 
   static IntegratorFlags
@@ -110,10 +100,11 @@ public:
   {
     MappingFlags flags;
 
-    flags.cells = dealii::update_JxW_values | dealii::update_gradients;
+    flags.cells =
+      dealii::update_JxW_values | dealii::update_gradients | dealii::update_quadrature_points;
     if(compute_interior_face_integrals)
-      flags.inner_faces =
-        dealii::update_JxW_values | dealii::update_gradients | dealii::update_normal_vectors;
+      flags.inner_faces = dealii::update_JxW_values | dealii::update_gradients |
+                          dealii::update_normal_vectors | dealii::update_quadrature_points;
     if(compute_boundary_face_integrals)
       flags.boundary_faces = dealii::update_JxW_values | dealii::update_gradients |
                              dealii::update_normal_vectors | dealii::update_quadrature_points;
@@ -130,10 +121,10 @@ public:
 
   static inline DEAL_II_ALWAYS_INLINE //
     gradient_type
-    get_gradient_flux(value_type const &       value_m,
-                      value_type const &       value_p,
-                      vector const &           normal,
-                      coefficient_type const & coefficient)
+    calculate_gradient_flux(value_type const &       value_m,
+                            value_type const &       value_p,
+                            vector const &           normal,
+                            coefficient_type const & coefficient)
   {
     value_type const    jump_value  = value_m - value_p;
     gradient_type const jump_tensor = outer_product(jump_value, normal);
@@ -143,37 +134,37 @@ public:
 
   inline DEAL_II_ALWAYS_INLINE //
     value_type
-    get_value_flux(gradient_type const &    gradient_m,
-                   gradient_type const &    gradient_p,
-                   value_type const &       value_m,
-                   value_type const &       value_p,
-                   vector const &           normal,
-                   coefficient_type const & coefficient)
+    calculate_value_flux(gradient_type const &    gradient_m,
+                         gradient_type const &    gradient_p,
+                         value_type const &       value_m,
+                         value_type const &       value_p,
+                         vector const &           normal,
+                         coefficient_type const & coefficient)
   {
     value_type const    jump_value  = value_m - value_p;
     gradient_type const jump_tensor = outer_product(jump_value, normal);
 
     gradient_type const average_gradient = 0.5 * (gradient_m + gradient_p);
 
-    return -coeff_mult(coefficient, (average_gradient + tau * jump_tensor)) * normal;
+    return -coeff_mult(coefficient, (average_gradient - tau * jump_tensor)) * normal;
   }
 
   inline DEAL_II_ALWAYS_INLINE //
     value_type
-    get_value_flux(value_type const &       coeff_times_normal_gradient_m,
-                   value_type const &       coeff_times_normal_gradient_p,
-                   value_type const &       value_m,
-                   value_type const &       value_p,
-                   vector const &           normal,
-                   coefficient_type const & coefficient)
+    calculate_value_flux(value_type const &       coeff_times_gradient_times_normal_m,
+                         value_type const &       coeff_times_gradient_times_normal_p,
+                         value_type const &       value_m,
+                         value_type const &       value_p,
+                         vector const &           normal,
+                         coefficient_type const & coefficient)
   {
     value_type const    jump_value  = value_m - value_p;
     gradient_type const jump_tensor = outer_product(jump_value, normal);
 
     value_type const average_coeff_times_normal_gradient =
-      0.5 * (coeff_times_normal_gradient_m + coeff_times_normal_gradient_p);
+      0.5 * (coeff_times_gradient_times_normal_m + coeff_times_gradient_times_normal_p);
 
-    return -(average_coeff_times_normal_gradient +
+    return -(average_coeff_times_normal_gradient -
              value_type(coeff_mult(coefficient, (tau * jump_tensor)) * normal));
   }
 
@@ -185,10 +176,83 @@ public:
   }
 
   void
-  calculate_coefficients(dealii::MatrixFree<dim, Number> const & matrix_free,
-                         unsigned int const                      quad_index)
+  reinit_coefficients(dealii::MatrixFree<dim, Number> const & matrix_free,
+                      unsigned int const                      quad_index,
+                      bool const                              use_cell_based_loops)
   {
-    coefficients.initialize(matrix_free, quad_index, data.coefficient_function);
+    auto const cell_coefficient_function = [&](unsigned int const cell, unsigned int const q) {
+      IntegratorCell integrator(matrix_free, {}, quad_index);
+      integrator.reinit(cell);
+      return FunctionEvaluator<coefficient_rank, dim, Number>::value(data.coefficient_function,
+                                                                     integrator.quadrature_point(q),
+                                                                     {});
+    };
+
+    auto const face_coefficient_function = [&](unsigned int const face, unsigned int const q) {
+      IntegratorFace integrator(matrix_free, true /* work like an interior face */, {}, quad_index);
+      integrator.reinit(face);
+      return FunctionEvaluator<coefficient_rank, dim, Number>::value(data.coefficient_function,
+                                                                     integrator.quadrature_point(q),
+                                                                     {});
+    };
+
+    auto const cell_based_face_coefficient_function = [&](unsigned int const cell,
+                                                          unsigned int const face,
+                                                          unsigned int const q) {
+      IntegratorFace integrator(matrix_free, true /* work like an interior face */, {}, quad_index);
+      integrator.reinit(cell, face);
+      return FunctionEvaluator<coefficient_rank, dim, Number>::value(data.coefficient_function,
+                                                                     integrator.quadrature_point(q),
+                                                                     {});
+    };
+
+    if(use_cell_based_loops)
+      coefficients.initialize(matrix_free,
+                              quad_index,
+                              cell_coefficient_function,
+                              face_coefficient_function,
+                              {},
+                              cell_based_face_coefficient_function);
+    else
+      coefficients.initialize(
+        matrix_free, quad_index, cell_coefficient_function, face_coefficient_function, {}, {});
+  }
+
+  void
+  update_coefficients(dealii::MatrixFree<dim, Number> const & matrix_free,
+                      unsigned int const                      quad_index,
+                      double const                            time)
+  {
+    auto const cell_coefficient_function = [&](unsigned int const cell, unsigned int const q) {
+      IntegratorCell integrator(matrix_free, {}, quad_index);
+      integrator.reinit(cell);
+      return FunctionEvaluator<coefficient_rank, dim, Number>::value(data.coefficient_function,
+                                                                     integrator.quadrature_point(q),
+                                                                     time);
+    };
+
+    auto const face_coefficient_function = [&](unsigned int const face, unsigned int const q) {
+      IntegratorFace integrator(matrix_free, true /* work like an interior face */, {}, quad_index);
+      integrator.reinit(face);
+      return FunctionEvaluator<coefficient_rank, dim, Number>::value(data.coefficient_function,
+                                                                     integrator.quadrature_point(q),
+                                                                     time);
+    };
+
+    auto const cell_based_face_coefficient_function = [&](unsigned int const cell,
+                                                          unsigned int const face,
+                                                          unsigned int const q) {
+      IntegratorFace integrator(matrix_free, true /* work like an interior face */, {}, quad_index);
+      integrator.reinit(cell, face);
+      return FunctionEvaluator<coefficient_rank, dim, Number>::value(data.coefficient_function,
+                                                                     integrator.quadrature_point(q),
+                                                                     time);
+    };
+
+    coefficients.set_coefficients(cell_coefficient_function,
+                                  face_coefficient_function,
+                                  {},
+                                  cell_based_face_coefficient_function);
   }
 
   coefficient_type
@@ -201,6 +265,12 @@ public:
   get_coefficient_face(unsigned int const face, unsigned int const q)
   {
     return coefficients.get_coefficient_face(face, q);
+  }
+
+  coefficient_type
+  get_coefficient_face_cell_based(unsigned int const face, unsigned int const q)
+  {
+    return coefficients.get_coefficient_face_cell_based(face, q);
   }
 
   void
@@ -267,7 +337,7 @@ private:
       return coeff * x;
   }
 
-  GeneralizedLaplaceKernelData<dim, Number, n_components, coupling_coefficient> data{};
+  KernelData<dim> data{};
 
   unsigned int degree{1};
 
@@ -311,9 +381,17 @@ public:
     return BoundaryType::Undefined;
   }
 
-  bc_map const & dirichlet_bc;
-  bc_map const & neumann_bc;
+  bc_map const dirichlet_bc;
+  bc_map const neumann_bc;
 };
+
+template<int dim, typename T>
+std::shared_ptr<BoundaryDescriptor<dim>>
+create_laplace_boundary_descriptor(T module_bc_descriptor)
+{
+  return std::make_shared<BoundaryDescriptor<dim>>(module_bc_descriptor->dirichlet_bc,
+                                                   module_bc_descriptor->neumann_bc);
+}
 
 template<int dim, typename Number, int n_components, bool coupling_coefficient>
 struct WeakBoundaryConditions
@@ -325,8 +403,7 @@ struct WeakBoundaryConditions
   static constexpr unsigned int coefficient_rank =
     (coupling_coefficient) ? ((n_components > 1) ? 4 : 2) : 0;
 
-  using value_type    = dealii::Tensor<value_rank, dim, scalar>;
-  using gradient_type = dealii::Tensor<value_rank + 1, dim, scalar>;
+  using value_type = dealii::Tensor<value_rank, dim, scalar>;
 
   using coefficient_type = dealii::Tensor<coefficient_rank, dim, scalar>;
 
@@ -387,7 +464,7 @@ struct WeakBoundaryConditions
 
   static inline DEAL_II_ALWAYS_INLINE //
     value_type
-    calculate_interior_coeff_times_normal_gradient(
+    calculate_interior_coeff_times_gradient_times_normal(
       unsigned int const                                q,
       FaceIntegrator<dim, n_components, Number> const & integrator,
       OperatorType const &                              operator_type,
@@ -406,8 +483,8 @@ struct WeakBoundaryConditions
 
   static inline DEAL_II_ALWAYS_INLINE //
     value_type
-    calculate_exterior_coeff_times_normal_gradient(
-      value_type const &                                coeff_times_normal_gradient_m,
+    calculate_exterior_coeff_times_gradient_times_normal(
+      value_type const &                                coeff_times_gradient_times_normal_m,
       unsigned int const                                q,
       FaceIntegrator<dim, n_components, Number> const & integrator,
       OperatorType const &                              operator_type,
@@ -417,7 +494,7 @@ struct WeakBoundaryConditions
       double const                                      time)
   {
     if(boundary_type == BoundaryType::Dirichlet)
-      return coeff_times_normal_gradient_m;
+      return coeff_times_gradient_times_normal_m;
 
     if(boundary_type == BoundaryType::Neumann)
     {
@@ -428,10 +505,10 @@ struct WeakBoundaryConditions
 
         auto const h = FunctionEvaluator<value_rank, dim, Number>::value(bc, q_points, time);
 
-        return coeff_times_normal_gradient_m + value_type(2.0 * h);
+        return coeff_times_gradient_times_normal_m + value_type(2.0 * h);
       }
       else if(operator_type == OperatorType::homogeneous)
-        return -coeff_times_normal_gradient_m;
+        return -coeff_times_gradient_times_normal_m;
       else
         AssertThrow(false, dealii::ExcNotImplemented());
     }
@@ -455,21 +532,16 @@ private:
 };
 } // namespace Boundary
 
-template<int dim, typename Number, int n_components = 1, bool coupling_coefficient = false>
-struct GeneralizedLaplaceOperatorData : public OperatorBaseData
+template<int dim>
+struct OperatorData : public OperatorBaseData
 {
-  static constexpr unsigned int value_rank = (n_components > 1) ? 1 : 0;
-
-  Operators::GeneralizedLaplaceKernelData<dim, Number, n_components, coupling_coefficient>
-    kernel_data{};
+  Operators::KernelData<dim> kernel_data{};
 
   std::shared_ptr<Boundary::BoundaryDescriptor<dim>> bc{};
-
-  // std::shared_ptr<Poisson::BoundaryDescriptor<value_rank, dim> const> bc{};
 };
 
 template<int dim, typename Number, int n_components = 1, bool coupling_coefficient = false>
-class GeneralizedLaplaceOperator : public OperatorBase<dim, Number, n_components>
+class Operator : public OperatorBase<dim, Number, n_components>
 {
 private:
   using scalar = dealii::VectorizedArray<Number>;
@@ -495,22 +567,19 @@ private:
 
 public:
   void
-  initialize(
-    dealii::MatrixFree<dim, Number> const &   matrix_free,
-    dealii::AffineConstraints<Number> const & affine_constraints,
-    GeneralizedLaplaceOperatorData<dim, Number, n_components, coupling_coefficient> const & data);
+  initialize(dealii::MatrixFree<dim, Number> const &   matrix_free,
+             dealii::AffineConstraints<Number> const & affine_constraints,
+             OperatorData<dim> const &                 data);
 
   void
   initialize(
     dealii::MatrixFree<dim, Number> const &   matrix_free,
     dealii::AffineConstraints<Number> const & affine_constraints,
-    GeneralizedLaplaceOperatorData<dim, Number, n_components, coupling_coefficient> const & data,
-    std::shared_ptr<
-      Operators::GeneralizedLaplaceKernel<dim, Number, n_components, coupling_coefficient>>
-      generalized_laplace_kernel);
+    OperatorData<dim> const &                 data_in,
+    std::shared_ptr<Operators::Kernel<dim, Number, n_components, coupling_coefficient>> kernel_in);
 
   void
-  update();
+  update_coefficients();
 
 private:
   void
@@ -534,6 +603,10 @@ private:
   do_face_int_integral(IntegratorFace & integrator_m, IntegratorFace & integrator_p) const override;
 
   void
+  do_face_int_integral_cell_based(IntegratorFace & integrator_m,
+                                  IntegratorFace & integrator_p) const override;
+
+  void
   do_face_ext_integral(IntegratorFace & integrator_m, IntegratorFace & integrator_p) const override;
 
   void
@@ -541,12 +614,15 @@ private:
                        OperatorType const &               operator_type,
                        dealii::types::boundary_id const & boundary_id) const override;
 
-  GeneralizedLaplaceOperatorData<dim, Number, n_components, coupling_coefficient> operator_data;
+  void
+  do_boundary_integral_cell_based(IntegratorFace &                   integrator,
+                                  OperatorType const &               operator_type,
+                                  dealii::types::boundary_id const & boundary_id) const;
 
-  std::shared_ptr<
-    Operators::GeneralizedLaplaceKernel<dim, Number, n_components, coupling_coefficient>>
-    kernel;
+  OperatorData<dim> operator_data;
+
+  std::shared_ptr<Operators::Kernel<dim, Number, n_components, coupling_coefficient>> kernel;
 };
-} // namespace GeneralizedLaplaceOperator
+} // namespace GeneralizedLaplace
 } // namespace ExaDG
 #endif /* INCLUDE_EXADG_OPERATORS_GENERALIZED_LAPLACE_OPERATOR_H_ */

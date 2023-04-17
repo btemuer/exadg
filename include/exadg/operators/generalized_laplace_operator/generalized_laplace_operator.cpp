@@ -23,54 +23,56 @@
 
 namespace ExaDG
 {
-namespace GeneralizedLaplaceOperator
+namespace GeneralizedLaplace
 {
 template<int dim, typename Number, int n_components, bool coupling_coefficient>
 void
-GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::initialize(
+Operator<dim, Number, n_components, coupling_coefficient>::initialize(
   dealii::MatrixFree<dim, Number> const &   matrix_free,
   dealii::AffineConstraints<Number> const & affine_constraints,
-  GeneralizedLaplaceOperatorData<dim, Number, n_components, coupling_coefficient> const & data)
+  OperatorData<dim> const &                 data)
 {
   Base::reinit(matrix_free, affine_constraints, data);
 
   operator_data = data;
 
-  kernel->reinit(matrix_free, data.kernel_data, data.dof_index, data.quad_index);
+  kernel->reinit(matrix_free,
+                 data.kernel_data,
+                 data.dof_index,
+                 data.quad_index,
+                 operator_data.use_cell_based_loops);
 
   this->integrator_flags = kernel->get_integrator_flags();
 }
 
 template<int dim, typename Number, int n_components, bool coupling_coefficient>
 void
-GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::initialize(
+Operator<dim, Number, n_components, coupling_coefficient>::initialize(
   dealii::MatrixFree<dim, Number> const &   matrix_free,
   dealii::AffineConstraints<Number> const & affine_constraints,
-  GeneralizedLaplaceOperatorData<dim, Number, n_components, coupling_coefficient> const & data,
-  std::shared_ptr<
-    Operators::GeneralizedLaplaceKernel<dim, Number, n_components, coupling_coefficient>>
-    generalized_laplace_kernel)
+  OperatorData<dim> const &                 data_in,
+  std::shared_ptr<Operators::Kernel<dim, Number, n_components, coupling_coefficient>> const
+    kernel_in)
 {
-  Base::reinit(matrix_free, affine_constraints, data);
+  Base::reinit(matrix_free, affine_constraints, data_in);
 
-  operator_data = data;
+  operator_data = data_in;
 
-  kernel = generalized_laplace_kernel;
+  kernel = kernel_in;
 
   this->integrator_flags = kernel->get_integrator_flags();
 }
 
 template<int dim, typename Number, int n_components, bool coupling_coefficient>
 void
-GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::update()
+Operator<dim, Number, n_components, coupling_coefficient>::update_coefficients()
 {
-  kernel->calculate_penalty_parameter(this->get_matrix_free(), operator_data.dof_index);
-  kernel->calculate_coefficients(this->get_matrix_free(), operator_data.quad_index);
+  kernel->update_coefficients(this->get_matrix_free(), operator_data.quad_index, this->time);
 }
 
 template<int dim, typename Number, int n_components, bool coupling_coefficient>
 void
-GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::reinit_face(
+Operator<dim, Number, n_components, coupling_coefficient>::reinit_face(
   unsigned int const face) const
 {
   Base::reinit_face(face);
@@ -80,7 +82,7 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::rei
 
 template<int dim, typename Number, int n_components, bool coupling_coefficient>
 void
-GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::reinit_boundary_face(
+Operator<dim, Number, n_components, coupling_coefficient>::reinit_boundary_face(
   unsigned int const face) const
 {
   Base::reinit_boundary_face(face);
@@ -90,7 +92,7 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::rei
 
 template<int dim, typename Number, int n_components, bool coupling_coefficient>
 void
-GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::reinit_face_cell_based(
+Operator<dim, Number, n_components, coupling_coefficient>::reinit_face_cell_based(
   unsigned int const               cell,
   unsigned int const               face,
   dealii::types::boundary_id const boundary_id) const
@@ -105,7 +107,7 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::rei
 
 template<int dim, typename Number, int n_components, bool coupling_coefficient>
 void
-GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_cell_integral(
+Operator<dim, Number, n_components, coupling_coefficient>::do_cell_integral(
   IntegratorCell & integrator) const
 {
   for(unsigned int q = 0; q < integrator.n_q_points; ++q)
@@ -122,7 +124,7 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
 
 template<int dim, typename Number, int n_components, bool coupling_coefficient>
 void
-GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_face_integral(
+Operator<dim, Number, n_components, coupling_coefficient>::do_face_integral(
   IntegratorFace & integrator_m,
   IntegratorFace & integrator_p) const
 {
@@ -141,10 +143,10 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
     coefficient_type const coefficient = kernel->get_coefficient_face(face, q);
 
     gradient_type const gradient_flux =
-      kernel->get_gradient_flux(value_m, value_p, normal_m, coefficient);
+      kernel->calculate_gradient_flux(value_m, value_p, normal_m, coefficient);
 
     value_type const value_flux =
-      kernel->get_value_flux(gradient_m, gradient_p, value_m, value_p, normal_m, coefficient);
+      kernel->calculate_value_flux(gradient_m, gradient_p, value_m, value_p, normal_m, coefficient);
 
     integrator_m.submit_gradient(gradient_flux, q);
     integrator_p.submit_gradient(gradient_flux, q);
@@ -156,7 +158,7 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
 
 template<int dim, typename Number, int n_components, bool coupling_coefficient>
 void
-GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_face_int_integral(
+Operator<dim, Number, n_components, coupling_coefficient>::do_face_int_integral(
   IntegratorFace & integrator_m,
   IntegratorFace & integrator_p) const
 {
@@ -177,10 +179,10 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
     coefficient_type const coefficient = kernel->get_coefficient_face(face, q);
 
     gradient_type const gradient_flux =
-      kernel->get_gradient_flux(value_m, value_p, normal_m, coefficient);
+      kernel->calculate_gradient_flux(value_m, value_p, normal_m, coefficient);
 
     value_type const value_flux =
-      kernel->get_value_flux(gradient_m, gradient_p, value_m, value_p, normal_m, coefficient);
+      kernel->calculate_value_flux(gradient_m, gradient_p, value_m, value_p, normal_m, coefficient);
 
     integrator_m.submit_gradient(gradient_flux, q);
     integrator_m.submit_value(value_flux, q);
@@ -189,7 +191,40 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
 
 template<int dim, typename Number, int n_components, bool coupling_coefficient>
 void
-GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_face_ext_integral(
+Operator<dim, Number, n_components, coupling_coefficient>::do_face_int_integral_cell_based(
+  IntegratorFace & integrator_m,
+  IntegratorFace & integrator_p) const
+{
+  (void)integrator_p;
+
+  for(unsigned int q = 0; q < integrator_m.n_q_points; ++q)
+  {
+    unsigned int const face = integrator_m.get_current_cell_index();
+
+    value_type const value_m = integrator_m.get_value(q);
+    value_type const value_p; // set exterior values to zero
+
+    gradient_type const gradient_m = integrator_m.get_gradient(q);
+    gradient_type const gradient_p; // set exterior gradients to zero
+
+    vector const normal_m = integrator_m.get_normal_vector(q);
+
+    coefficient_type const coefficient = kernel->get_coefficient_face_cell_based(face, q);
+
+    gradient_type const gradient_flux =
+      kernel->calculate_gradient_flux(value_m, value_p, normal_m, coefficient);
+
+    value_type const value_flux =
+      kernel->calculate_value_flux(gradient_m, gradient_p, value_m, value_p, normal_m, coefficient);
+
+    integrator_m.submit_gradient(gradient_flux, q);
+    integrator_m.submit_value(value_flux, q);
+  }
+}
+
+template<int dim, typename Number, int n_components, bool coupling_coefficient>
+void
+Operator<dim, Number, n_components, coupling_coefficient>::do_face_ext_integral(
   IntegratorFace & integrator_m,
   IntegratorFace & integrator_p) const
 {
@@ -211,10 +246,10 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
     coefficient_type const coefficient = kernel->get_coefficient_face(face, q);
 
     gradient_type const gradient_flux =
-      kernel->get_gradient_flux(value_p, value_m, normal_p, coefficient);
+      kernel->calculate_gradient_flux(value_p, value_m, normal_p, coefficient);
 
     value_type const value_flux =
-      kernel->get_value_flux(gradient_p, gradient_m, value_p, value_m, normal_p, coefficient);
+      kernel->calculate_value_flux(gradient_p, gradient_m, value_p, value_m, normal_p, coefficient);
 
     integrator_p.submit_gradient(gradient_flux, q);
     integrator_p.submit_value(value_flux, q);
@@ -223,7 +258,7 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
 
 template<int dim, typename Number, int n_components, bool coupling_coefficient>
 void
-GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_boundary_integral(
+Operator<dim, Number, n_components, coupling_coefficient>::do_boundary_integral(
   IntegratorFace &                   integrator,
   const OperatorType &               operator_type,
   const dealii::types::boundary_id & boundary_id) const
@@ -250,50 +285,112 @@ GeneralizedLaplaceOperator<dim, Number, n_components, coupling_coefficient>::do_
     coefficient_type const coefficient = kernel->get_coefficient_face(face, q);
 
     gradient_type const gradient_flux =
-      kernel->get_gradient_flux(value_m, value_p, normal_m, coefficient);
+      kernel->calculate_gradient_flux(value_m, value_p, normal_m, coefficient);
 
     value_type const coeff_times_normal_gradient_m =
-      BC::calculate_interior_coeff_times_normal_gradient(q, integrator, operator_type, coefficient);
+      BC::calculate_interior_coeff_times_gradient_times_normal(q,
+                                                               integrator,
+                                                               operator_type,
+                                                               coefficient);
 
     value_type const coeff_times_normal_gradient_p =
-      BC::calculate_exterior_coeff_times_normal_gradient(coeff_times_normal_gradient_m,
-                                                         q,
-                                                         integrator,
-                                                         operator_type,
-                                                         boundary_type,
-                                                         boundary_id,
-                                                         operator_data.bc,
-                                                         this->time);
+      BC::calculate_exterior_coeff_times_gradient_times_normal(coeff_times_normal_gradient_m,
+                                                               q,
+                                                               integrator,
+                                                               operator_type,
+                                                               boundary_type,
+                                                               boundary_id,
+                                                               operator_data.bc,
+                                                               this->time);
 
-    value_type const value_flux = kernel->get_value_flux(coeff_times_normal_gradient_m,
-                                                         coeff_times_normal_gradient_p,
-                                                         value_m,
-                                                         value_p,
-                                                         normal_m,
-                                                         coefficient);
+    value_type const value_flux = kernel->calculate_value_flux(coeff_times_normal_gradient_m,
+                                                               coeff_times_normal_gradient_p,
+                                                               value_m,
+                                                               value_p,
+                                                               normal_m,
+                                                               coefficient);
 
     integrator.submit_gradient(gradient_flux, q);
     integrator.submit_value(value_flux, q);
   }
 }
 
-template class GeneralizedLaplaceOperator<2, float, 1, false>;
-template class GeneralizedLaplaceOperator<3, float, 1, false>;
+template<int dim, typename Number, int n_components, bool coupling_coefficient>
+void
+Operator<dim, Number, n_components, coupling_coefficient>::do_boundary_integral_cell_based(
+  IntegratorFace &                   integrator,
+  const OperatorType &               operator_type,
+  const dealii::types::boundary_id & boundary_id) const
+{
+  auto const boundary_type = operator_data.bc->get_boundary_type(boundary_id);
 
-template class GeneralizedLaplaceOperator<2, float, 2, false>;
-template class GeneralizedLaplaceOperator<2, float, 2, true>;
+  for(unsigned int q = 0; q < integrator.n_q_points; ++q)
+  {
+    unsigned int const face = integrator.get_current_cell_index();
 
-template class GeneralizedLaplaceOperator<3, float, 3, false>;
-template class GeneralizedLaplaceOperator<3, float, 3, true>;
+    value_type const value_m = BC::calculate_interior_value(q, integrator, operator_type);
 
-template class GeneralizedLaplaceOperator<2, double, 1, false>;
-template class GeneralizedLaplaceOperator<3, double, 1, false>;
+    value_type const value_p = BC::calculate_exterior_value(value_m,
+                                                            q,
+                                                            integrator,
+                                                            operator_type,
+                                                            boundary_type,
+                                                            boundary_id,
+                                                            operator_data.bc,
+                                                            this->time);
 
-template class GeneralizedLaplaceOperator<2, double, 2, false>;
-template class GeneralizedLaplaceOperator<2, double, 2, true>;
+    vector const normal_m = integrator.get_normal_vector(q);
 
-template class GeneralizedLaplaceOperator<3, double, 3, false>;
-template class GeneralizedLaplaceOperator<3, double, 3, true>;
+    coefficient_type const coefficient = kernel->get_coefficient_face_cell_based(face, q);
 
-} // namespace GeneralizedLaplaceOperator
+    gradient_type const gradient_flux =
+      kernel->calculate_gradient_flux(value_m, value_p, normal_m, coefficient);
+
+    value_type const coeff_times_normal_gradient_m =
+      BC::calculate_interior_coeff_times_gradient_times_normal(q,
+                                                               integrator,
+                                                               operator_type,
+                                                               coefficient);
+
+    value_type const coeff_times_normal_gradient_p =
+      BC::calculate_exterior_coeff_times_gradient_times_normal(coeff_times_normal_gradient_m,
+                                                               q,
+                                                               integrator,
+                                                               operator_type,
+                                                               boundary_type,
+                                                               boundary_id,
+                                                               operator_data.bc,
+                                                               this->time);
+
+    value_type const value_flux = kernel->calculate_value_flux(coeff_times_normal_gradient_m,
+                                                               coeff_times_normal_gradient_p,
+                                                               value_m,
+                                                               value_p,
+                                                               normal_m,
+                                                               coefficient);
+
+    integrator.submit_gradient(gradient_flux, q);
+    integrator.submit_value(value_flux, q);
+  }
+}
+
+template class Operator<2, float, 1, false>;
+template class Operator<3, float, 1, false>;
+
+template class Operator<2, float, 2, false>;
+template class Operator<2, float, 2, true>;
+
+template class Operator<3, float, 3, false>;
+template class Operator<3, float, 3, true>;
+
+template class Operator<2, double, 1, false>;
+template class Operator<3, double, 1, false>;
+
+template class Operator<2, double, 2, false>;
+template class Operator<2, double, 2, true>;
+
+template class Operator<3, double, 3, false>;
+template class Operator<3, double, 3, true>;
+
+} // namespace GeneralizedLaplace
 } // namespace ExaDG

@@ -59,6 +59,21 @@ OperatorCoupled<dim, Number>::~OperatorCoupled()
 
 template<int dim, typename Number>
 void
+OperatorCoupled<dim, Number>::fill_matrix_free_data(
+  MatrixFreeData<dim, Number> & matrix_free_data) const
+{
+  Base::fill_matrix_free_data(matrix_free_data);
+
+  if(this->param.preconditioner_pressure_block ==
+     SchurComplementPreconditioner::PressureConvectionDiffusion)
+  {
+    matrix_free_data.append_mapping_flags(
+      GeneralizedLaplace::Operators::Kernel<dim, Number>::get_mapping_flags(true, true));
+  }
+}
+
+template<int dim, typename Number>
+void
 OperatorCoupled<dim, Number>::setup(std::shared_ptr<dealii::MatrixFree<dim, Number>> matrix_free,
                                     std::shared_ptr<MatrixFreeData<dim, Number>> matrix_free_data,
                                     std::string const & dof_index_temperature)
@@ -712,13 +727,15 @@ OperatorCoupled<dim, Number>::setup_pressure_convection_diffusion_operator()
   // diffusive operator:
   // take interior penalty factor of diffusivity of viscous operator, but use polynomial degree of
   // pressure shape functions.
-  ConvDiff::Operators::DiffusiveKernelData diffusive_kernel_data;
+  GeneralizedLaplace::Operators::KernelData<dim> diffusive_kernel_data;
   diffusive_kernel_data.IP_factor = this->param.IP_factor_viscous;
   // Note: the diffusive operator is initialized with constant viscosity. In case of spatially (and
   // temporally) varying viscosities the diffusive operator has to be extended so that it can deal
   // with variable coefficients (and should be updated in case of time dependent problems before
   // applying the preconditioner).
-  diffusive_kernel_data.diffusivity = this->param.viscosity;
+  diffusive_kernel_data.coefficient_function =
+    std::make_shared<dealii::Functions::ConstantFunction<dim>>(this->param.viscosity);
+
 
   // combined convection-diffusion operator
   ConvDiff::CombinedOperatorData<dim> operator_data;
