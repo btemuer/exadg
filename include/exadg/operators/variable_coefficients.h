@@ -180,20 +180,17 @@ public:
   }
 
   coefficient_type
-  get_coefficient_cell_based_face(unsigned int const cell,
-                                  unsigned int const face,
-                                  unsigned int const q) const
+  get_coefficient_face_cell_based(unsigned int const face_index, unsigned int const q) const
   {
-    return coefficients_face_cell_based[cell][face][q];
+    return coefficients_face_cell_based[face_index][q];
   }
 
   void
-  set_coefficient_cell_based_face(unsigned int const       cell,
-                                  unsigned int const       face,
+  set_coefficient_face_cell_based(unsigned int const       face_index,
                                   unsigned int const       q,
                                   coefficient_type const & value)
   {
-    coefficients_face_cell_based[cell][face][q] = value;
+    coefficients_face_cell_based[face_index][q] = value;
   }
 
 private:
@@ -215,10 +212,10 @@ private:
 
     if(cell_based_face_loop)
     {
-      coefficients_face_cell_based.reinit(
-        matrix_free.n_cell_batches(),
-        matrix_free.get_mapping_info().reference_cell_types[0][0].n_faces(),
-        matrix_free.get_n_q_points(quad_index));
+      unsigned int const n_faces_per_cell =
+        matrix_free.get_dof_handler().get_triangulation().get_reference_cells()[0].n_faces();
+      coefficients_face_cell_based.reinit(matrix_free.n_cell_batches() * n_faces_per_cell,
+                                          matrix_free.get_n_q_points(quad_index));
     }
   }
 
@@ -239,8 +236,7 @@ private:
     unsigned int const n_cells = coefficients_cell.size(0);
     unsigned int const n_faces = coefficients_face.size(0);
 
-    unsigned int const n_faces_per_cell =
-      cell_based_face_loop ? coefficients_face_cell_based.size(1) : 0;
+    unsigned int const n_faces_per_cell = cell_based_face_loop ? 4 : 0;
 
     unsigned int const n_cell_q_points = coefficients_cell.size(1);
     unsigned int const n_face_q_points = coefficients_face.size(1);
@@ -251,11 +247,12 @@ private:
         set_coefficient_cell(cell, q, cell_coefficient_function(cell, q));
 
       for(unsigned int face = 0; face < n_faces_per_cell; ++face)
-        for(unsigned int q = 0; q < n_cell_q_points; ++q)
-          set_coefficient_cell_based_face(cell,
-                                          face,
+        for(unsigned int q = 0; q < n_face_q_points; ++q)
+        {
+          set_coefficient_face_cell_based(cell * n_faces_per_cell + face,
                                           q,
                                           cell_based_face_coefficient_function(cell, face, q));
+        }
     }
 
     for(unsigned int face = 0; face < n_faces; ++face)
@@ -292,7 +289,7 @@ private:
   dealii::Table<2, coefficient_type> coefficients_face_neighbor;
 
   // cell-based face loops
-  dealii::Table<3, coefficient_type> coefficients_face_cell_based;
+  dealii::Table<2, coefficient_type> coefficients_face_cell_based;
 
   bool coefficients_differ_between_neighbors{false};
   bool cell_based_face_loop{false};

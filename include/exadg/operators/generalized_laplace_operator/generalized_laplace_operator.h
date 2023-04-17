@@ -69,14 +69,15 @@ public:
   reinit(dealii::MatrixFree<dim, Number> const & matrix_free,
          KernelData<dim> const &                 data_in,
          unsigned int const                      dof_index,
-         unsigned int const                      quad_index)
+         unsigned int const                      quad_index,
+         bool const                              use_cell_based_loops)
   {
     data   = data_in;
     degree = matrix_free.get_dof_handler(dof_index).get_fe().degree;
 
     calculate_penalty_parameter(matrix_free, dof_index);
 
-    reinit_coefficients(matrix_free, quad_index);
+    reinit_coefficients(matrix_free, quad_index, use_cell_based_loops);
   }
 
   static IntegratorFlags
@@ -145,7 +146,7 @@ public:
 
     gradient_type const average_gradient = 0.5 * (gradient_m + gradient_p);
 
-    return -coeff_mult(coefficient, (average_gradient + tau * jump_tensor)) * normal;
+    return -coeff_mult(coefficient, (average_gradient - tau * jump_tensor)) * normal;
   }
 
   inline DEAL_II_ALWAYS_INLINE //
@@ -163,7 +164,7 @@ public:
     value_type const average_coeff_times_normal_gradient =
       0.5 * (coeff_times_gradient_times_normal_m + coeff_times_gradient_times_normal_p);
 
-    return -(average_coeff_times_normal_gradient +
+    return -(average_coeff_times_normal_gradient -
              value_type(coeff_mult(coefficient, (tau * jump_tensor)) * normal));
   }
 
@@ -176,7 +177,8 @@ public:
 
   void
   reinit_coefficients(dealii::MatrixFree<dim, Number> const & matrix_free,
-                      unsigned int const                      quad_index)
+                      unsigned int const                      quad_index,
+                      bool const                              use_cell_based_loops)
   {
     auto const cell_coefficient_function = [&](unsigned int const cell, unsigned int const q) {
       IntegratorCell integrator(matrix_free, {}, quad_index);
@@ -204,12 +206,16 @@ public:
                                                                      {});
     };
 
-    coefficients.initialize(matrix_free,
-                            quad_index,
-                            cell_coefficient_function,
-                            face_coefficient_function,
-                            {},
-                            cell_based_face_coefficient_function);
+    if(use_cell_based_loops)
+      coefficients.initialize(matrix_free,
+                              quad_index,
+                              cell_coefficient_function,
+                              face_coefficient_function,
+                              {},
+                              cell_based_face_coefficient_function);
+    else
+      coefficients.initialize(
+        matrix_free, quad_index, cell_coefficient_function, face_coefficient_function, {}, {});
   }
 
   void
@@ -259,6 +265,12 @@ public:
   get_coefficient_face(unsigned int const face, unsigned int const q)
   {
     return coefficients.get_coefficient_face(face, q);
+  }
+
+  coefficient_type
+  get_coefficient_face_cell_based(unsigned int const face, unsigned int const q)
+  {
+    return coefficients.get_coefficient_face_cell_based(face, q);
   }
 
   void
@@ -591,12 +603,21 @@ private:
   do_face_int_integral(IntegratorFace & integrator_m, IntegratorFace & integrator_p) const override;
 
   void
+  do_face_int_integral_cell_based(IntegratorFace & integrator_m,
+                                  IntegratorFace & integrator_p) const override;
+
+  void
   do_face_ext_integral(IntegratorFace & integrator_m, IntegratorFace & integrator_p) const override;
 
   void
   do_boundary_integral(IntegratorFace &                   integrator,
                        OperatorType const &               operator_type,
                        dealii::types::boundary_id const & boundary_id) const override;
+
+  void
+  do_boundary_integral_cell_based(IntegratorFace &                   integrator,
+                                  OperatorType const &               operator_type,
+                                  dealii::types::boundary_id const & boundary_id) const;
 
   OperatorData<dim> operator_data;
 

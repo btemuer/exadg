@@ -142,6 +142,11 @@ private:
   do_face_int_integral_cell_based(IntegratorFace & integrator_m,
                                   IntegratorFace & integrator_p) const;
 
+  void
+  do_boundary_integral_cell_based(IntegratorFace &                   integrator_m,
+                                  OperatorType const &               operator_type,
+                                  dealii::types::boundary_id const & boundary_id) const override;
+
   CombinedOperatorData<dim> operator_data;
 
   std::shared_ptr<MassKernel<dim, Number>>                            mass_kernel;
