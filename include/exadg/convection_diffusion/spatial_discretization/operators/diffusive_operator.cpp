@@ -198,16 +198,16 @@ DiffusiveOperator<dim, Number>::do_boundary_integral(
 
     scalar gradient_flux = kernel->calculate_gradient_flux(value_m, value_p);
 
-    scalar normal_gradient_m = calculate_interior_normal_gradient(q, integrator_m, operator_type);
+    scalar normal_gradient_m = calculate_interior_normal_derivative(q, integrator_m, operator_type);
 
-    scalar normal_gradient_p = calculate_exterior_normal_gradient(normal_gradient_m,
-                                                                  q,
-                                                                  integrator_m,
-                                                                  operator_type,
-                                                                  boundary_type,
-                                                                  boundary_id,
-                                                                  operator_data.bc,
-                                                                  this->time);
+    scalar normal_gradient_p = calculate_exterior_normal_derivative(normal_gradient_m,
+                                                                    q,
+                                                                    integrator_m,
+                                                                    operator_type,
+                                                                    boundary_type,
+                                                                    boundary_id,
+                                                                    operator_data.bc,
+                                                                    this->time);
 
     scalar value_flux =
       kernel->calculate_value_flux(normal_gradient_m, normal_gradient_p, value_m, value_p);

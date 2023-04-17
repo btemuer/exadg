@@ -149,33 +149,33 @@ inline DEAL_II_ALWAYS_INLINE //
 template<int dim, typename Number>
 inline DEAL_II_ALWAYS_INLINE //
   dealii::VectorizedArray<Number>
-  calculate_interior_normal_gradient(unsigned int const                     q,
+  calculate_interior_normal_derivative(unsigned int const                     q,
                                      FaceIntegrator<dim, 1, Number> const & integrator,
                                      OperatorType const &                   operator_type)
 {
-  dealii::VectorizedArray<Number> normal_gradient_m = dealii::make_vectorized_array<Number>(0.0);
+  dealii::VectorizedArray<Number> normal_derivative_m = 0.0;
 
   if(operator_type == OperatorType::full || operator_type == OperatorType::homogeneous)
   {
-    normal_gradient_m = integrator.get_normal_derivative(q);
+    normal_derivative_m = integrator.get_normal_derivative(q);
   }
   else if(operator_type == OperatorType::inhomogeneous)
   {
-    // do nothing (normal_gradient_m already initialized with 0.0)
+    // do nothing (normal_derivative_m already initialized with 0.0)
   }
   else
   {
     AssertThrow(false, dealii::ExcMessage("Specified OperatorType is not implemented!"));
   }
 
-  return normal_gradient_m;
+  return normal_derivative_m;
 }
 
 template<int dim, typename Number>
 inline DEAL_II_ALWAYS_INLINE //
   dealii::VectorizedArray<Number>
-  calculate_exterior_normal_gradient(
-    dealii::VectorizedArray<Number> const &        normal_gradient_m,
+  calculate_exterior_normal_derivative(
+    dealii::VectorizedArray<Number> const &        normal_derivative_m,
     unsigned int const                             q,
     FaceIntegrator<dim, 1, Number> const &         integrator,
     OperatorType const &                           operator_type,
@@ -184,11 +184,11 @@ inline DEAL_II_ALWAYS_INLINE //
     std::shared_ptr<BoundaryDescriptor<dim> const> boundary_descriptor,
     double const &                                 time)
 {
-  dealii::VectorizedArray<Number> normal_gradient_p = dealii::make_vectorized_array<Number>(0.0);
+  dealii::VectorizedArray<Number> normal_derivative_p = 0.0;
 
   if(boundary_type == BoundaryType::Dirichlet)
   {
-    normal_gradient_p = normal_gradient_m;
+    normal_derivative_p = normal_derivative_m;
   }
   else if(boundary_type == BoundaryType::Neumann)
   {
@@ -199,11 +199,11 @@ inline DEAL_II_ALWAYS_INLINE //
 
       auto h = FunctionEvaluator<0, dim, Number>::value(bc, q_points, time);
 
-      normal_gradient_p = -normal_gradient_m + 2.0 * h;
+      normal_derivative_p = -normal_derivative_m + 2.0 * h;
     }
     else if(operator_type == OperatorType::homogeneous)
     {
-      normal_gradient_p = -normal_gradient_m;
+      normal_derivative_p = -normal_derivative_m;
     }
     else
     {
@@ -215,7 +215,7 @@ inline DEAL_II_ALWAYS_INLINE //
     AssertThrow(false, dealii::ExcMessage("Boundary type of face is invalid or not implemented."));
   }
 
-  return normal_gradient_p;
+  return normal_derivative_p;
 }
 
 } // namespace ConvDiff

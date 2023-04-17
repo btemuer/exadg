@@ -132,6 +132,21 @@ public:
     return -0.5 * coeff_mult(coefficient, jump_tensor);
   }
 
+  static inline DEAL_II_ALWAYS_INLINE //
+    value_type
+    calculate_normal_derivative_flux(value_type const &       value_m,
+                                     value_type const &       value_p,
+                                     coefficient_type const & coefficient)
+  {
+    AssertThrow(not coupling_coefficient,
+                dealii::ExcMessage("Normal derivative flux only makes"
+                                   "sense with non-coupling coefficients."));
+
+    value_type const jump_value = value_m - value_p;
+
+    return -0.5 * coefficient * jump_value;
+  }
+
   inline DEAL_II_ALWAYS_INLINE //
     value_type
     calculate_value_flux(gradient_type const &    gradient_m,
