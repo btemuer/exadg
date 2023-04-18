@@ -247,8 +247,8 @@ public:
   inline DEAL_II_ALWAYS_INLINE //
     auto
     make_cell_coefficient_function(dealii::MatrixFree<dim, Number> const & matrix_free,
-                                   unsigned int const                      quad_index,
-                                   double const                            time) const
+                                   unsigned int const &                    quad_index,
+                                   double const &                          time) const
   {
     return [&](unsigned int const cell, unsigned int const q) {
       IntegratorCell integrator(matrix_free, {}, quad_index);
@@ -261,8 +261,8 @@ public:
   inline DEAL_II_ALWAYS_INLINE //
     auto
     make_face_coefficient_function(dealii::MatrixFree<dim, Number> const & matrix_free,
-                                   unsigned int const                      quad_index,
-                                   double const                            time) const
+                                   unsigned int const &                    quad_index,
+                                   double const &                          time) const
   {
     return [&](unsigned int const face, unsigned int const q) {
       IntegratorFace integrator(matrix_free, true /* work like an interior face */, {}, quad_index);
@@ -275,9 +275,9 @@ public:
   inline DEAL_II_ALWAYS_INLINE //
     auto
     make_cell_based_face_coefficient_function(dealii::MatrixFree<dim, Number> const & matrix_free,
-                                              unsigned int const                      quad_index,
-                                              double const                            time,
-                                              bool const use_cell_based_face_loops) const
+                                              unsigned int const &                    quad_index,
+                                              double const &                          time,
+                                              bool const & use_cell_based_face_loops) const
   {
     return std::invoke([&]() -> std::function<coefficient_type(
                                unsigned int const, unsigned int const, unsigned int const)> {
