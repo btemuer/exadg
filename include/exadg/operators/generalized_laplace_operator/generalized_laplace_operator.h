@@ -70,14 +70,14 @@ public:
          KernelData<dim> const &                 data_in,
          unsigned int const                      dof_index,
          unsigned int const                      quad_index,
-         bool const                              use_cell_based_loops)
+         bool const                              use_cell_based_face_loops)
   {
     data   = data_in;
     degree = matrix_free.get_dof_handler(dof_index).get_fe().degree;
 
     calculate_penalty_parameter(matrix_free, dof_index);
 
-    reinit_coefficients(matrix_free, quad_index, use_cell_based_loops);
+    reinit_coefficients(matrix_free, quad_index, use_cell_based_face_loops);
   }
 
   static IntegratorFlags
@@ -193,81 +193,96 @@ public:
   void
   reinit_coefficients(dealii::MatrixFree<dim, Number> const & matrix_free,
                       unsigned int const                      quad_index,
-                      bool const                              use_cell_based_loops)
+                      bool const                              use_cell_based_face_loops)
   {
-    auto const cell_coefficient_function = [&](unsigned int const cell, unsigned int const q) {
-      IntegratorCell integrator(matrix_free, {}, quad_index);
-      integrator.reinit(cell);
-      return FunctionEvaluator<coefficient_rank, dim, Number>::value(data.coefficient_function,
-                                                                     integrator.quadrature_point(q),
-                                                                     {});
-    };
+    auto const cell_coefficient_function =
+      make_cell_coefficient_function(matrix_free, quad_index, {});
 
-    auto const face_coefficient_function = [&](unsigned int const face, unsigned int const q) {
-      IntegratorFace integrator(matrix_free, true /* work like an interior face */, {}, quad_index);
-      integrator.reinit(face);
-      return FunctionEvaluator<coefficient_rank, dim, Number>::value(data.coefficient_function,
-                                                                     integrator.quadrature_point(q),
-                                                                     {});
-    };
+    auto const face_coefficient_function =
+      make_face_coefficient_function(matrix_free, quad_index, {});
 
-    auto const cell_based_face_coefficient_function = [&](unsigned int const cell,
-                                                          unsigned int const face,
-                                                          unsigned int const q) {
-      IntegratorFace integrator(matrix_free, true /* work like an interior face */, {}, quad_index);
-      integrator.reinit(cell, face);
-      return FunctionEvaluator<coefficient_rank, dim, Number>::value(data.coefficient_function,
-                                                                     integrator.quadrature_point(q),
-                                                                     {});
-    };
+    auto const cell_based_face_coefficient_function = make_cell_based_face_coefficient_function(
+      matrix_free, quad_index, {}, use_cell_based_face_loops);
 
-    if(use_cell_based_loops)
-      coefficients.initialize(matrix_free,
-                              quad_index,
-                              cell_coefficient_function,
-                              face_coefficient_function,
-                              {},
-                              cell_based_face_coefficient_function);
-    else
-      coefficients.initialize(
-        matrix_free, quad_index, cell_coefficient_function, face_coefficient_function, {}, {});
+    coefficients.initialize(matrix_free,
+                            quad_index,
+                            cell_coefficient_function,
+                            face_coefficient_function,
+                            {} /* neighbor coefficients not needed */,
+                            cell_based_face_coefficient_function);
   }
 
   void
   update_coefficients(dealii::MatrixFree<dim, Number> const & matrix_free,
                       unsigned int const                      quad_index,
-                      double const                            time)
+                      double const                            time,
+                      bool const                              use_cell_based_face_loops = false)
   {
-    auto const cell_coefficient_function = [&](unsigned int const cell, unsigned int const q) {
-      IntegratorCell integrator(matrix_free, {}, quad_index);
-      integrator.reinit(cell);
-      return FunctionEvaluator<coefficient_rank, dim, Number>::value(data.coefficient_function,
-                                                                     integrator.quadrature_point(q),
-                                                                     time);
-    };
+    auto const cell_coefficient_function =
+      make_cell_coefficient_function(matrix_free, quad_index, time);
 
-    auto const face_coefficient_function = [&](unsigned int const face, unsigned int const q) {
-      IntegratorFace integrator(matrix_free, true /* work like an interior face */, {}, quad_index);
-      integrator.reinit(face);
-      return FunctionEvaluator<coefficient_rank, dim, Number>::value(data.coefficient_function,
-                                                                     integrator.quadrature_point(q),
-                                                                     time);
-    };
+    auto const face_coefficient_function =
+      make_face_coefficient_function(matrix_free, quad_index, time);
 
-    auto const cell_based_face_coefficient_function = [&](unsigned int const cell,
-                                                          unsigned int const face,
-                                                          unsigned int const q) {
-      IntegratorFace integrator(matrix_free, true /* work like an interior face */, {}, quad_index);
-      integrator.reinit(cell, face);
-      return FunctionEvaluator<coefficient_rank, dim, Number>::value(data.coefficient_function,
-                                                                     integrator.quadrature_point(q),
-                                                                     time);
-    };
+    auto const cell_based_face_coefficient_function = make_cell_based_face_coefficient_function(
+      matrix_free, quad_index, time, use_cell_based_face_loops);
 
     coefficients.set_coefficients(cell_coefficient_function,
                                   face_coefficient_function,
-                                  {},
+                                  {} /* neighbor coefficients not needed */,
                                   cell_based_face_coefficient_function);
+  }
+
+  inline DEAL_II_ALWAYS_INLINE //
+    auto
+    make_cell_coefficient_function(dealii::MatrixFree<dim, Number> const & matrix_free,
+                                   unsigned int const                      quad_index,
+                                   double const                            time) const
+  {
+    return [&](unsigned int const cell, unsigned int const q) {
+      IntegratorCell integrator(matrix_free, {}, quad_index);
+      integrator.reinit(cell);
+      return FunctionEvaluator<coefficient_rank, dim, Number>::value(
+        this->data.coefficient_function, integrator.quadrature_point(q), time);
+    };
+  }
+
+  inline DEAL_II_ALWAYS_INLINE //
+    auto
+    make_face_coefficient_function(dealii::MatrixFree<dim, Number> const & matrix_free,
+                                   unsigned int const                      quad_index,
+                                   double const                            time) const
+  {
+    return [&](unsigned int const face, unsigned int const q) {
+      IntegratorFace integrator(matrix_free, true /* work like an interior face */, {}, quad_index);
+      integrator.reinit(face);
+      return FunctionEvaluator<coefficient_rank, dim, Number>::value(
+        this->data.coefficient_function, integrator.quadrature_point(q), time);
+    };
+  }
+
+  inline DEAL_II_ALWAYS_INLINE //
+    auto
+    make_cell_based_face_coefficient_function(dealii::MatrixFree<dim, Number> const & matrix_free,
+                                              unsigned int const                      quad_index,
+                                              double const                            time,
+                                              bool const use_cell_based_face_loops) const
+  {
+    return std::invoke([&]() -> std::function<coefficient_type(
+                               unsigned int const, unsigned int const, unsigned int const)> {
+      if(use_cell_based_face_loops)
+        return [&](unsigned int const cell, unsigned int const face, unsigned int const q) {
+          IntegratorFace integrator(matrix_free,
+                                    true /* work like an interior face */,
+                                    {},
+                                    quad_index);
+          integrator.reinit(cell, face);
+          return FunctionEvaluator<coefficient_rank, dim, Number>::value(
+            this->data.coefficient_function, integrator.quadrature_point(q), time);
+        };
+      else
+        return {};
+    });
   }
 
   coefficient_type
