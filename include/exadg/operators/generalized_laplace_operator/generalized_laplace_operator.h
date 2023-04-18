@@ -33,6 +33,17 @@ namespace ExaDG
 {
 namespace GeneralizedLaplace
 {
+template<typename T, int coefficient_rank, int dim, typename Number>
+static inline DEAL_II_ALWAYS_INLINE //
+  T
+  coeff_mult(dealii::Tensor<coefficient_rank, dim, Number> const & coeff, T const & x)
+{
+  if constexpr(coefficient_rank == 4)
+    return dealii::double_contract<2, 0, 3, 1>(coeff, x);
+  else
+    return coeff * x;
+}
+
 namespace Operators
 {
 template<int dim>
@@ -356,17 +367,6 @@ public:
   }
 
 private:
-  template<typename T>
-  static inline DEAL_II_ALWAYS_INLINE //
-    T
-    coeff_mult(coefficient_type const & coeff, T const & x)
-  {
-    if constexpr(coefficient_rank == 4)
-      return dealii::double_contract<2, 0, 3, 1>(coeff, x);
-    else
-      return coeff * x;
-  }
-
   KernelData<dim> data{};
 
   unsigned int degree{1};
@@ -546,18 +546,6 @@ struct WeakBoundaryConditions
     AssertThrow(false, dealii::ExcMessage("Boundary type of face is invalid or not implemented."));
 
     return value_type{};
-  }
-
-private:
-  template<typename T>
-  static inline DEAL_II_ALWAYS_INLINE //
-    T
-    coeff_mult(coefficient_type const & coeff, T const & x)
-  {
-    if constexpr(coefficient_rank == 4)
-      return dealii::double_contract<2, 0, 3, 1>(coeff, x);
-    else
-      return coeff * x;
   }
 };
 } // namespace Boundary
