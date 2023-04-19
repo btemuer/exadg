@@ -63,7 +63,9 @@ CombinedOperator<dim, Number>::initialize(
                              data.diffusive_kernel_data,
                              data.dof_index,
                              data.quad_index,
-                             operator_data.use_cell_based_loops);
+                             data.use_cell_based_loops);
+
+    calculate_diffusivity();
   }
 
   // integrator flags
@@ -75,6 +77,25 @@ CombinedOperator<dim, Number>::initialize(
 
   if(operator_data.diffusive_problem)
     this->integrator_flags = this->integrator_flags | diffusive_kernel->get_integrator_flags();
+}
+
+template<int dim, typename Number>
+void
+CombinedOperator<dim, Number>::calculate_diffusivity()
+{
+  VectorType dummy;
+  this->matrix_free->loop(&This::cell_loop_set_coefficients,
+                          &This::face_loop_set_coefficients,
+                          &This::face_loop_set_coefficients,
+                          this,
+                          dummy,
+                          dummy);
+
+  if(operator_data.use_cell_based_loops)
+    this->matrix_free->loop_cell_centric(&This::cell_based_loop_set_coefficients,
+                                         this,
+                                         dummy,
+                                         dummy);
 }
 
 template<int dim, typename Number>

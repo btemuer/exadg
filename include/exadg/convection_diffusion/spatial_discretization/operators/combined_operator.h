@@ -83,6 +83,9 @@ public:
              std::shared_ptr<Operators::ConvectiveKernel<dim, Number>>           convective_kernel,
              std::shared_ptr<GeneralizedLaplace::Operators::Kernel<dim, Number>> diffusive_kernel);
 
+  void
+  calculate_diffusivity();
+
   CombinedOperatorData<dim> const &
   get_data() const;
 

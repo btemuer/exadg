@@ -71,13 +71,6 @@ private:
 template<typename coefficient_type>
 class VariableCoefficients
 {
-private:
-  using coefficient_function_type =
-    std::function<coefficient_type(unsigned int const, unsigned int const)>;
-
-  using cell_based_coefficient_function_type =
-    std::function<coefficient_type(unsigned int const, unsigned int const, unsigned int const)>;
-
 public:
   template<int dim, typename Number>
   void
@@ -95,46 +88,10 @@ public:
     fill(coefficient);
   }
 
-  template<int dim, typename Number>
-  void
-  initialize(dealii::MatrixFree<dim, Number> const &      matrix_free,
-             unsigned int const                           quad_index,
-             coefficient_function_type const &            cell_coefficient_function,
-             coefficient_function_type const &            face_coefficient_function,
-             coefficient_function_type const &            neighbor_face_coefficient_function   = {},
-             cell_based_coefficient_function_type const & cell_based_face_coefficient_function = {})
-  {
-    if(neighbor_face_coefficient_function)
-      coefficients_differ_between_neighbors = true;
-
-    if(cell_based_face_coefficient_function)
-      cell_based_face_loop = true;
-
-    reinit(matrix_free, quad_index);
-
-    fill(cell_coefficient_function,
-         face_coefficient_function,
-         neighbor_face_coefficient_function,
-         cell_based_face_coefficient_function);
-  }
-
   void
   set_coefficients(coefficient_type const & constant_coefficient)
   {
     fill(constant_coefficient);
-  }
-
-  void
-  set_coefficients(
-    coefficient_function_type const &            cell_coefficient_function,
-    coefficient_function_type const &            face_coefficient_function,
-    coefficient_function_type const &            neighbor_face_coefficient_function   = {},
-    cell_based_coefficient_function_type const & cell_based_face_coefficient_function = {})
-  {
-    fill(cell_coefficient_function,
-         face_coefficient_function,
-         neighbor_face_coefficient_function,
-         cell_based_face_coefficient_function);
   }
 
   coefficient_type
@@ -214,55 +171,9 @@ private:
     {
       unsigned int const n_faces_per_cell =
         matrix_free.get_dof_handler().get_triangulation().get_reference_cells()[0].n_faces();
+
       coefficients_face_cell_based.reinit(matrix_free.n_cell_batches() * n_faces_per_cell,
                                           matrix_free.get_n_q_points(quad_index));
-    }
-  }
-
-  void
-  fill(coefficient_function_type const &            cell_coefficient_function,
-       coefficient_function_type const &            face_coefficient_function,
-       coefficient_function_type const &            neighbor_face_coefficient_function,
-       cell_based_coefficient_function_type const & cell_based_face_coefficient_function)
-  {
-    if(cell_based_face_loop)
-      Assert(cell_based_face_coefficient_function,
-             dealii::ExcMessage("Cell based face coefficient function must be specified."));
-
-    if(coefficients_differ_between_neighbors)
-      Assert(neighbor_face_coefficient_function,
-             dealii::ExcMessage("Neighbor face coefficient function must be specified."));
-
-    unsigned int const n_cells = coefficients_cell.size(0);
-    unsigned int const n_faces = coefficients_face.size(0);
-
-    unsigned int const n_faces_per_cell = cell_based_face_loop ? 4 : 0;
-
-    unsigned int const n_cell_q_points = coefficients_cell.size(1);
-    unsigned int const n_face_q_points = coefficients_face.size(1);
-
-    for(unsigned int cell = 0; cell < n_cells; ++cell)
-    {
-      for(unsigned int q = 0; q < n_cell_q_points; ++q)
-        set_coefficient_cell(cell, q, cell_coefficient_function(cell, q));
-
-      for(unsigned int face = 0; face < n_faces_per_cell; ++face)
-        for(unsigned int q = 0; q < n_face_q_points; ++q)
-        {
-          set_coefficient_face_cell_based(cell * n_faces_per_cell + face,
-                                          q,
-                                          cell_based_face_coefficient_function(cell, face, q));
-        }
-    }
-
-    for(unsigned int face = 0; face < n_faces; ++face)
-    {
-      for(unsigned int q = 0; q < n_face_q_points; ++q)
-      {
-        set_coefficient_face(face, q, face_coefficient_function(face, q));
-        if(coefficients_differ_between_neighbors)
-          set_coefficient_face_neighbor(face, q, neighbor_face_coefficient_function(face, q));
-      }
     }
   }
 

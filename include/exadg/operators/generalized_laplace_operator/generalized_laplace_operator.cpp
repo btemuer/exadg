@@ -42,6 +42,8 @@ Operator<dim, Number, n_components, coupling_coefficient>::initialize(
                  data.quad_index,
                  operator_data.use_cell_based_loops);
 
+  calculate_coefficients();
+
   this->integrator_flags = kernel->get_integrator_flags();
 }
 
@@ -60,14 +62,9 @@ Operator<dim, Number, n_components, coupling_coefficient>::initialize(
 
   kernel = kernel_in;
 
-  this->integrator_flags = kernel->get_integrator_flags();
-}
+  calculate_coefficients();
 
-template<int dim, typename Number, int n_components, bool coupling_coefficient>
-void
-Operator<dim, Number, n_components, coupling_coefficient>::update_coefficients()
-{
-  kernel->update_coefficients(this->get_matrix_free(), operator_data.quad_index, this->time);
+  this->integrator_flags = kernel->get_integrator_flags();
 }
 
 template<int dim, typename Number, int n_components, bool coupling_coefficient>
@@ -103,6 +100,108 @@ Operator<dim, Number, n_components, coupling_coefficient>::reinit_face_cell_base
                                  *this->integrator_m,
                                  *this->integrator_p,
                                  operator_data.dof_index);
+}
+
+template<int dim, typename Number, int n_components, bool coupling_coefficient>
+void
+Operator<dim, Number, n_components, coupling_coefficient>::calculate_coefficients()
+{
+  VectorType dummy;
+  this->matrix_free->loop(&This::cell_loop_set_coefficients,
+                          &This::face_loop_set_coefficients,
+                          &This::face_loop_set_coefficients,
+                          this,
+                          dummy,
+                          dummy);
+
+  if(operator_data.use_cell_based_loops)
+    this->matrix_free->loop_cell_centric(&This::cell_based_loop_set_coefficients,
+                                         this,
+                                         dummy,
+                                         dummy);
+}
+
+template<int dim, typename Number, int n_components, bool coupling_coefficient>
+void
+Operator<dim, Number, n_components, coupling_coefficient>::cell_loop_set_coefficients(
+  dealii::MatrixFree<dim, Number> const & matrix_free,
+  VectorType &,
+  VectorType const &,
+  Range const & cell_range) const
+{
+  IntegratorCell integrator(matrix_free, operator_data.dof_index, operator_data.quad_index);
+
+  for(unsigned int cell = cell_range.first; cell < cell_range.second; ++cell)
+  {
+    integrator.reinit(cell);
+
+    for(unsigned int q = 0; q < integrator.n_q_points; ++q)
+    {
+      coefficient_type const coefficient = FunctionEvaluator<coefficient_rank, dim, Number>::value(
+        operator_data.kernel_data.coefficient_function, integrator.quadrature_point(q), this->time);
+
+      kernel->set_coefficient_cell(cell, q, coefficient);
+    }
+  }
+}
+
+template<int dim, typename Number, int n_components, bool coupling_coefficient>
+void
+Operator<dim, Number, n_components, coupling_coefficient>::face_loop_set_coefficients(
+  dealii::MatrixFree<dim, Number> const & matrix_free,
+  VectorType &,
+  VectorType const &,
+  Range const & face_range) const
+{
+  IntegratorFace integrator(matrix_free, true, operator_data.dof_index, operator_data.quad_index);
+
+  for(unsigned int face = face_range.first; face < face_range.second; face++)
+  {
+    integrator.reinit(face);
+
+    for(unsigned int q = 0; q < integrator.n_q_points; ++q)
+    {
+      coefficient_type const coefficient = FunctionEvaluator<coefficient_rank, dim, Number>::value(
+        operator_data.kernel_data.coefficient_function, integrator.quadrature_point(q), this->time);
+
+      kernel->set_coefficient_face(face, q, coefficient);
+    }
+  }
+}
+
+template<int dim, typename Number, int n_components, bool coupling_coefficient>
+void
+Operator<dim, Number, n_components, coupling_coefficient>::cell_based_loop_set_coefficients(
+  dealii::MatrixFree<dim, Number> const & matrix_free,
+  VectorType &,
+  VectorType const &,
+  Range const & cell_range) const
+{
+  IntegratorFace integrator(matrix_free, true, operator_data.dof_index, operator_data.quad_index);
+
+  unsigned int const n_faces_per_cell =
+    matrix_free.get_dof_handler().get_triangulation().get_reference_cells()[0].n_faces();
+
+  for(unsigned int cell = cell_range.first; cell < cell_range.second; ++cell)
+  {
+    for(unsigned int face = 0; face < n_faces_per_cell; ++face)
+    {
+      integrator.reinit(cell, face);
+
+      unsigned int const cell_based_face_index = integrator.get_current_cell_index();
+
+      for(unsigned int q = 0; q < integrator.n_q_points; ++q)
+      {
+        coefficient_type const coefficient =
+          FunctionEvaluator<coefficient_rank, dim, Number>::value(
+            operator_data.kernel_data.coefficient_function,
+            integrator.quadrature_point(q),
+            this->time);
+
+        kernel->set_coefficient_face_cell_based(cell_based_face_index, q, coefficient);
+      }
+    }
+  }
 }
 
 template<int dim, typename Number, int n_components, bool coupling_coefficient>
