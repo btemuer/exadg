@@ -58,12 +58,14 @@ public:
   typedef Number value_type;
 
 private:
-  typedef OperatorBase<dim, Number, 1> Base;
+  typedef OperatorBase<dim, Number, 1>  Base;
+  typedef CombinedOperator<dim, Number> This;
 
   typedef typename Base::IntegratorCell IntegratorCell;
   typedef typename Base::IntegratorFace IntegratorFace;
 
   typedef typename Base::VectorType VectorType;
+  typedef typename Base::Range      Range;
 
   typedef dealii::VectorizedArray<Number>                         scalar;
   typedef dealii::Tensor<1, dim, dealii::VectorizedArray<Number>> vector;
@@ -82,9 +84,6 @@ public:
              CombinedOperatorData<dim> const &                                   data,
              std::shared_ptr<Operators::ConvectiveKernel<dim, Number>>           convective_kernel,
              std::shared_ptr<GeneralizedLaplace::Operators::Kernel<dim, Number>> diffusive_kernel);
-
-  void
-  calculate_diffusivity();
 
   CombinedOperatorData<dim> const &
   get_data() const;
@@ -121,6 +120,27 @@ private:
   reinit_face_cell_based(unsigned int const               cell,
                          unsigned int const               face,
                          dealii::types::boundary_id const boundary_id) const override;
+
+  void
+  calculate_diffusivity() const;
+
+  void
+  cell_loop_set_coefficients(dealii::MatrixFree<dim, Number> const &,
+                             VectorType &,
+                             VectorType const &,
+                             Range const &) const;
+
+  void
+  face_loop_set_coefficients(dealii::MatrixFree<dim, Number> const &,
+                             VectorType &,
+                             VectorType const &,
+                             Range const &) const;
+
+  void
+  cell_based_loop_set_coefficients(dealii::MatrixFree<dim, Number> const &,
+                                   VectorType &,
+                                   VectorType const &,
+                                   Range const &) const;
 
   void
   do_cell_integral(IntegratorCell & integrator) const override;

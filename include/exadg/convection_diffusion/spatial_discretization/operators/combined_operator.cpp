@@ -81,25 +81,6 @@ CombinedOperator<dim, Number>::initialize(
 
 template<int dim, typename Number>
 void
-CombinedOperator<dim, Number>::calculate_diffusivity()
-{
-  VectorType dummy;
-  this->matrix_free->loop(&This::cell_loop_set_coefficients,
-                          &This::face_loop_set_coefficients,
-                          &This::face_loop_set_coefficients,
-                          this,
-                          dummy,
-                          dummy);
-
-  if(operator_data.use_cell_based_loops)
-    this->matrix_free->loop_cell_centric(&This::cell_based_loop_set_coefficients,
-                                         this,
-                                         dummy,
-                                         dummy);
-}
-
-template<int dim, typename Number>
-void
 CombinedOperator<dim, Number>::initialize(
   dealii::MatrixFree<dim, Number> const &                             matrix_free,
   dealii::AffineConstraints<Number> const &                           affine_constraints,
@@ -118,7 +99,10 @@ CombinedOperator<dim, Number>::initialize(
     convective_kernel = convective_kernel_in;
 
   if(operator_data.diffusive_problem)
+  {
     diffusive_kernel = diffusive_kernel_in;
+    calculate_diffusivity();
+  }
 
   // integrator flags
   if(operator_data.unsteady_problem)
@@ -143,7 +127,10 @@ void
 CombinedOperator<dim, Number>::update_after_grid_motion()
 {
   if(operator_data.diffusive_problem)
+  {
     diffusive_kernel->calculate_penalty_parameter(*this->matrix_free, operator_data.dof_index);
+    calculate_diffusivity();
+  }
 }
 
 template<int dim, typename Number>
@@ -235,6 +222,111 @@ CombinedOperator<dim, Number>::reinit_face_cell_based(
                                              *this->integrator_m,
                                              *this->integrator_p,
                                              operator_data.dof_index);
+}
+
+template<int dim, typename Number>
+void
+CombinedOperator<dim, Number>::calculate_diffusivity() const
+{
+  VectorType dummy;
+  this->matrix_free->loop(&This::cell_loop_set_coefficients,
+                          &This::face_loop_set_coefficients,
+                          &This::face_loop_set_coefficients,
+                          this,
+                          dummy,
+                          dummy);
+
+  if(operator_data.use_cell_based_loops)
+    this->matrix_free->loop_cell_centric(&This::cell_based_loop_set_coefficients,
+                                         this,
+                                         dummy,
+                                         dummy);
+}
+
+template<int dim, typename Number>
+void
+CombinedOperator<dim, Number>::cell_loop_set_coefficients(
+  dealii::MatrixFree<dim, Number> const & matrix_free,
+  VectorType &,
+  VectorType const &,
+  Range const & cell_range) const
+{
+  IntegratorCell integrator(matrix_free, operator_data.dof_index, operator_data.quad_index);
+
+  for(unsigned int cell = cell_range.first; cell < cell_range.second; ++cell)
+  {
+    integrator.reinit(cell);
+
+    for(unsigned int q = 0; q < integrator.n_q_points; ++q)
+    {
+      scalar const coefficient = FunctionEvaluator<0, dim, Number>::value(
+        operator_data.diffusive_kernel_data.coefficient_function,
+        integrator.quadrature_point(q),
+        this->time);
+
+      diffusive_kernel->set_coefficient_cell(cell, q, coefficient);
+    }
+  }
+}
+
+template<int dim, typename Number>
+void
+CombinedOperator<dim, Number>::face_loop_set_coefficients(
+  dealii::MatrixFree<dim, Number> const & matrix_free,
+  VectorType &,
+  VectorType const &,
+  Range const & face_range) const
+{
+  IntegratorFace integrator(matrix_free, true, operator_data.dof_index, operator_data.quad_index);
+
+  for(unsigned int face = face_range.first; face < face_range.second; face++)
+  {
+    integrator.reinit(face);
+
+    for(unsigned int q = 0; q < integrator.n_q_points; ++q)
+    {
+      scalar const coefficient = FunctionEvaluator<0, dim, Number>::value(
+        operator_data.diffusive_kernel_data.coefficient_function,
+        integrator.quadrature_point(q),
+        this->time);
+
+      diffusive_kernel->set_coefficient_face(face, q, coefficient);
+    }
+  }
+}
+
+template<int dim, typename Number>
+void
+CombinedOperator<dim, Number>::cell_based_loop_set_coefficients(
+  dealii::MatrixFree<dim, Number> const & matrix_free,
+  VectorType &,
+  VectorType const &,
+  Range const & cell_range) const
+{
+  IntegratorFace integrator(matrix_free, true, operator_data.dof_index, operator_data.quad_index);
+
+  unsigned int const n_faces_per_cell =
+    matrix_free.get_dof_handler().get_triangulation().get_reference_cells()[0].n_faces();
+
+  for(unsigned int cell = cell_range.first; cell < cell_range.second; ++cell)
+  {
+    for(unsigned int face = 0; face < n_faces_per_cell; ++face)
+    {
+      integrator.reinit(cell, face);
+
+      unsigned int const cell_based_face_index = integrator.get_current_cell_index();
+
+      for(unsigned int q = 0; q < integrator.n_q_points; ++q)
+      {
+        scalar const coefficient = FunctionEvaluator<0, dim, Number>::value(
+          operator_data.diffusive_kernel_data.coefficient_function,
+          integrator.quadrature_point(q),
+          this->time);
+
+        diffusive_kernel->set_coefficient_face_cell_based(cell_based_face_index, q, coefficient);
+      }
+    }
+  }
 }
 
 template<int dim, typename Number>

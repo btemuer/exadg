@@ -209,6 +209,7 @@ Operator<dim, Number>::setup(std::shared_ptr<dealii::MatrixFree<dim, Number>> ma
     diffusive_operator_data.use_cell_based_loops = param.use_cell_based_face_loops;
     diffusive_operator_data.implement_block_diagonal_preconditioner_matrix_free =
       param.implement_block_diagonal_preconditioner_matrix_free;
+    diffusive_operator_data.kernel_data = diffusive_kernel_data;
 
     diffusive_operator.initialize(*matrix_free,
                                   affine_constraints,

@@ -202,7 +202,7 @@ public:
   }
 
   coefficient_type
-  get_coefficient_cell(unsigned int const cell, unsigned int const q)
+  get_coefficient_cell(unsigned int const cell, unsigned int const q) const
   {
     return coefficients.get_coefficient_cell(cell, q);
   }
@@ -216,7 +216,7 @@ public:
   }
 
   coefficient_type
-  get_coefficient_face(unsigned int const face, unsigned int const q)
+  get_coefficient_face(unsigned int const face, unsigned int const q) const
   {
     return coefficients.get_coefficient_face(face, q);
   }
@@ -230,7 +230,7 @@ public:
   }
 
   coefficient_type
-  get_coefficient_face_cell_based(unsigned int const face, unsigned int const q)
+  get_coefficient_face_cell_based(unsigned int const face, unsigned int const q) const
   {
     return coefficients.get_coefficient_face_cell_based(face, q);
   }
