@@ -76,14 +76,27 @@ public:
   void
   initialize(dealii::MatrixFree<dim, Number> const & matrix_free,
              unsigned int const                      quad_index,
-             coefficient_type const &                coefficient,
              bool const                              coefficients_differ_between_neighbors_in,
-             bool const                              cell_based_face_coefficient_function_in)
+             bool const                              use_cell_based_face_loops_in)
   {
     coefficients_differ_between_neighbors = coefficients_differ_between_neighbors_in;
-    cell_based_face_loop                  = cell_based_face_coefficient_function_in;
+    use_cell_based_face_loops             = use_cell_based_face_loops_in;
 
     reinit(matrix_free, quad_index);
+  }
+
+  template<int dim, typename Number>
+  void
+  initialize(dealii::MatrixFree<dim, Number> const & matrix_free,
+             unsigned int const                      quad_index,
+             coefficient_type const &                coefficient,
+             bool const                              coefficients_differ_between_neighbors_in,
+             bool const                              use_cell_based_face_loops_in)
+  {
+    initialize(matrix_free,
+               quad_index,
+               coefficients_differ_between_neighbors_in,
+               use_cell_based_face_loops_in);
 
     fill(coefficient);
   }
@@ -143,11 +156,11 @@ public:
   }
 
   void
-  set_coefficient_face_cell_based(unsigned int const       face_index,
+  set_coefficient_face_cell_based(unsigned int const       cell_based_face_index,
                                   unsigned int const       q,
                                   coefficient_type const & value)
   {
-    coefficients_face_cell_based[face_index][q] = value;
+    coefficients_face_cell_based[cell_based_face_index][q] = value;
   }
 
 private:
@@ -167,7 +180,7 @@ private:
                                         matrix_free.get_n_q_points_face(quad_index));
     }
 
-    if(cell_based_face_loop)
+    if(use_cell_based_face_loops)
     {
       unsigned int const n_faces_per_cell =
         matrix_free.get_dof_handler().get_triangulation().get_reference_cells()[0].n_faces();
@@ -186,7 +199,7 @@ private:
     if(coefficients_differ_between_neighbors)
       coefficients_face_neighbor.fill(constant_coefficient);
 
-    if(cell_based_face_loop)
+    if(use_cell_based_face_loops)
       coefficients_face_cell_based.fill(constant_coefficient);
   }
 
@@ -203,7 +216,7 @@ private:
   dealii::Table<2, coefficient_type> coefficients_face_cell_based;
 
   bool coefficients_differ_between_neighbors{false};
-  bool cell_based_face_loop{false};
+  bool use_cell_based_face_loops{false};
 };
 
 } // namespace ExaDG
