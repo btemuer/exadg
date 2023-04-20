@@ -229,15 +229,16 @@ void
 CombinedOperator<dim, Number>::calculate_diffusivity() const
 {
   VectorType dummy;
-  this->matrix_free->loop(&This::cell_loop_set_coefficients,
-                          &This::face_loop_set_coefficients,
-                          &This::face_loop_set_coefficients,
+
+  this->matrix_free->loop(&This::cell_loop_set_diffusivity,
+                          &This::face_loop_set_diffusivity,
+                          &This::face_loop_set_diffusivity,
                           this,
                           dummy,
                           dummy);
 
   if(operator_data.use_cell_based_loops)
-    this->matrix_free->loop_cell_centric(&This::cell_based_loop_set_coefficients,
+    this->matrix_free->loop_cell_centric(&This::cell_based_loop_set_diffusivity,
                                          this,
                                          dummy,
                                          dummy);
@@ -245,7 +246,7 @@ CombinedOperator<dim, Number>::calculate_diffusivity() const
 
 template<int dim, typename Number>
 void
-CombinedOperator<dim, Number>::cell_loop_set_coefficients(
+CombinedOperator<dim, Number>::cell_loop_set_diffusivity(
   dealii::MatrixFree<dim, Number> const & matrix_free,
   VectorType &,
   VectorType const &,
@@ -271,7 +272,7 @@ CombinedOperator<dim, Number>::cell_loop_set_coefficients(
 
 template<int dim, typename Number>
 void
-CombinedOperator<dim, Number>::face_loop_set_coefficients(
+CombinedOperator<dim, Number>::face_loop_set_diffusivity(
   dealii::MatrixFree<dim, Number> const & matrix_free,
   VectorType &,
   VectorType const &,
@@ -297,7 +298,7 @@ CombinedOperator<dim, Number>::face_loop_set_coefficients(
 
 template<int dim, typename Number>
 void
-CombinedOperator<dim, Number>::cell_based_loop_set_coefficients(
+CombinedOperator<dim, Number>::cell_based_loop_set_diffusivity(
   dealii::MatrixFree<dim, Number> const & matrix_free,
   VectorType &,
   VectorType const &,

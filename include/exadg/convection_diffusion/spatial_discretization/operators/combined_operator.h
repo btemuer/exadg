@@ -125,19 +125,19 @@ private:
   calculate_diffusivity() const;
 
   void
-  cell_loop_set_coefficients(dealii::MatrixFree<dim, Number> const &,
+  cell_loop_set_diffusivity(dealii::MatrixFree<dim, Number> const &,
                              VectorType &,
                              VectorType const &,
                              Range const &) const;
 
   void
-  face_loop_set_coefficients(dealii::MatrixFree<dim, Number> const &,
+  face_loop_set_diffusivity(dealii::MatrixFree<dim, Number> const &,
                              VectorType &,
                              VectorType const &,
                              Range const &) const;
 
   void
-  cell_based_loop_set_coefficients(dealii::MatrixFree<dim, Number> const &,
+  cell_based_loop_set_diffusivity(dealii::MatrixFree<dim, Number> const &,
                                    VectorType &,
                                    VectorType const &,
                                    Range const &) const;
