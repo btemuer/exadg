@@ -19,7 +19,7 @@
  *  ______________________________________________________________________
  */
 
-#include <exadg/operators/generalized_laplace_operator/generalized_laplace_operator.h>
+#include <exadg/operators/generalized_laplace_operator.h>
 
 namespace ExaDG
 {

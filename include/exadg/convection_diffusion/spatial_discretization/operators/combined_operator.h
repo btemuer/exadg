@@ -23,7 +23,7 @@
 #define INCLUDE_EXADG_CONVECTION_DIFFUSION_SPATIAL_DISCRETIZATION_OPERATORS_COMBINED_OPERATOR_H_
 
 #include <exadg/convection_diffusion/spatial_discretization/operators/convective_operator.h>
-#include <exadg/operators/generalized_laplace_operator/generalized_laplace_operator.h>
+#include <exadg/operators/generalized_laplace_operator.h>
 #include <exadg/operators/mass_kernel.h>
 
 namespace ExaDG
