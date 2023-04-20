@@ -52,13 +52,13 @@ void
 Operator<dim, Number, n_components, coupling_coefficient>::initialize(
   dealii::MatrixFree<dim, Number> const &   matrix_free,
   dealii::AffineConstraints<Number> const & affine_constraints,
-  OperatorData<dim> const &                 data_in,
+  OperatorData<dim> const &                 data,
   std::shared_ptr<Operators::Kernel<dim, Number, n_components, coupling_coefficient>> const
     kernel_in)
 {
-  Base::reinit(matrix_free, affine_constraints, data_in);
+  Base::reinit(matrix_free, affine_constraints, data);
 
-  operator_data = data_in;
+  operator_data = data;
 
   kernel = kernel_in;
 
