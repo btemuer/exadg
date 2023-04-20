@@ -90,14 +90,8 @@ public:
                use_neighbor_faces_in,
                use_cell_based_face_loops_in);
 
- /**
-  * Returns the coefficient in the entry (@p face , @p q) in the neighbor face coefficient table.
-  */
- coefficient_type
- get_coefficient_face_neighbor(unsigned int const face, unsigned int const q) const
- {
-   return coefficients_face_neighbor[face][q];
- }
+    fill(constant_coefficient);
+  }
 
   /**
    * Returns the coefficient in the entry (@p cell , @p q) in the cell coefficient table.
