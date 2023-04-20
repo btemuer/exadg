@@ -81,14 +81,14 @@ public:
          KernelData<dim> const &                 data_in,
          unsigned int const                      dof_index,
          unsigned int const                      quad_index,
-         bool const                              use_cell_based_face_loops)
+         bool const                              cell_based_face_loops)
   {
     data   = data_in;
     degree = matrix_free.get_dof_handler(dof_index).get_fe().degree;
 
     calculate_penalty_parameter(matrix_free, dof_index);
 
-    reinit_coefficients(matrix_free, quad_index, use_cell_based_face_loops);
+    coefficients.initialize(matrix_free, quad_index, true, false, cell_based_face_loops);
   }
 
   static IntegratorFlags
@@ -201,117 +201,46 @@ public:
     IP::calculate_penalty_parameter<dim, Number>(penalty_parameters, matrix_free, dof_index);
   }
 
-  void
-  reinit_coefficients(dealii::MatrixFree<dim, Number> const & matrix_free,
-                      unsigned int const                      quad_index,
-                      bool const                              use_cell_based_face_loops)
-  {
-    auto const cell_coefficient_function =
-      make_cell_coefficient_function(matrix_free, quad_index, {});
-
-    auto const face_coefficient_function =
-      make_face_coefficient_function(matrix_free, quad_index, {});
-
-    auto const cell_based_face_coefficient_function = make_cell_based_face_coefficient_function(
-      matrix_free, quad_index, {}, use_cell_based_face_loops);
-
-    coefficients.initialize(matrix_free,
-                            quad_index,
-                            cell_coefficient_function,
-                            face_coefficient_function,
-                            {} /* neighbor coefficients not needed */,
-                            cell_based_face_coefficient_function);
-  }
-
-  void
-  update_coefficients(dealii::MatrixFree<dim, Number> const & matrix_free,
-                      unsigned int const                      quad_index,
-                      double const                            time,
-                      bool const                              use_cell_based_face_loops = false)
-  {
-    auto const cell_coefficient_function =
-      make_cell_coefficient_function(matrix_free, quad_index, time);
-
-    auto const face_coefficient_function =
-      make_face_coefficient_function(matrix_free, quad_index, time);
-
-    auto const cell_based_face_coefficient_function = make_cell_based_face_coefficient_function(
-      matrix_free, quad_index, time, use_cell_based_face_loops);
-
-    coefficients.set_coefficients(cell_coefficient_function,
-                                  face_coefficient_function,
-                                  {} /* neighbor coefficients not needed */,
-                                  cell_based_face_coefficient_function);
-  }
-
-  inline DEAL_II_ALWAYS_INLINE //
-    auto
-    make_cell_coefficient_function(dealii::MatrixFree<dim, Number> const & matrix_free,
-                                   unsigned int const &                    quad_index,
-                                   double const &                          time) const
-  {
-    return [&](unsigned int const cell, unsigned int const q) {
-      IntegratorCell integrator(matrix_free, {}, quad_index);
-      integrator.reinit(cell);
-      return FunctionEvaluator<coefficient_rank, dim, Number>::value(
-        this->data.coefficient_function, integrator.quadrature_point(q), time);
-    };
-  }
-
-  inline DEAL_II_ALWAYS_INLINE //
-    auto
-    make_face_coefficient_function(dealii::MatrixFree<dim, Number> const & matrix_free,
-                                   unsigned int const &                    quad_index,
-                                   double const &                          time) const
-  {
-    return [&](unsigned int const face, unsigned int const q) {
-      IntegratorFace integrator(matrix_free, true /* work like an interior face */, {}, quad_index);
-      integrator.reinit(face);
-      return FunctionEvaluator<coefficient_rank, dim, Number>::value(
-        this->data.coefficient_function, integrator.quadrature_point(q), time);
-    };
-  }
-
-  inline DEAL_II_ALWAYS_INLINE //
-    auto
-    make_cell_based_face_coefficient_function(dealii::MatrixFree<dim, Number> const & matrix_free,
-                                              unsigned int const &                    quad_index,
-                                              double const &                          time,
-                                              bool const & use_cell_based_face_loops) const
-  {
-    return std::invoke([&]() -> std::function<coefficient_type(
-                               unsigned int const, unsigned int const, unsigned int const)> {
-      if(use_cell_based_face_loops)
-        return [&](unsigned int const cell, unsigned int const face, unsigned int const q) {
-          IntegratorFace integrator(matrix_free,
-                                    true /* work like an interior face */,
-                                    {},
-                                    quad_index);
-          integrator.reinit(cell, face);
-          return FunctionEvaluator<coefficient_rank, dim, Number>::value(
-            this->data.coefficient_function, integrator.quadrature_point(q), time);
-        };
-      else
-        return {};
-    });
-  }
-
   coefficient_type
-  get_coefficient_cell(unsigned int const cell, unsigned int const q)
+  get_coefficient_cell(unsigned int const cell, unsigned int const q) const
   {
     return coefficients.get_coefficient_cell(cell, q);
   }
 
+  void
+  set_coefficient_cell(unsigned int const       cell,
+                       unsigned int const       q,
+                       coefficient_type const & coefficient)
+  {
+    return coefficients.set_coefficient_cell(cell, q, coefficient);
+  }
+
   coefficient_type
-  get_coefficient_face(unsigned int const face, unsigned int const q)
+  get_coefficient_face(unsigned int const face, unsigned int const q) const
   {
     return coefficients.get_coefficient_face(face, q);
   }
 
+  void
+  set_coefficient_face(unsigned int const       face,
+                       unsigned int const       q,
+                       coefficient_type const & coefficient)
+  {
+    return coefficients.set_coefficient_face(face, q, coefficient);
+  }
+
   coefficient_type
-  get_coefficient_face_cell_based(unsigned int const face, unsigned int const q)
+  get_coefficient_face_cell_based(unsigned int const face, unsigned int const q) const
   {
     return coefficients.get_coefficient_face_cell_based(face, q);
+  }
+
+  void
+  set_coefficient_face_cell_based(unsigned int const       cell_based_face_index,
+                                  unsigned int const       q,
+                                  coefficient_type const & coefficient)
+  {
+    return coefficients.set_coefficient_face_cell_based(cell_based_face_index, q, coefficient);
   }
 
   void
@@ -575,6 +504,7 @@ private:
   using coefficient_type = dealii::Tensor<coefficient_rank, dim, scalar>;
 
   using Base = OperatorBase<dim, Number, n_components>;
+  using This = Operator<dim, Number, n_components, coupling_coefficient>;
 
   using Range          = typename Base::Range;
   using VectorType     = typename Base::VectorType;
@@ -597,7 +527,7 @@ public:
     std::shared_ptr<Operators::Kernel<dim, Number, n_components, coupling_coefficient>> kernel_in);
 
   void
-  update_coefficients();
+  calculate_coefficients();
 
 private:
   void
@@ -610,6 +540,24 @@ private:
   reinit_face_cell_based(unsigned int               cell,
                          unsigned int               face,
                          dealii::types::boundary_id boundary_id) const override;
+
+  void
+  cell_loop_set_coefficients(dealii::MatrixFree<dim, Number> const &,
+                             VectorType &,
+                             VectorType const &,
+                             Range const &) const;
+
+  void
+  face_loop_set_coefficients(dealii::MatrixFree<dim, Number> const &,
+                             VectorType &,
+                             VectorType const &,
+                             Range const &) const;
+
+  void
+  cell_based_loop_set_coefficients(dealii::MatrixFree<dim, Number> const &,
+                                   VectorType &,
+                                   VectorType const &,
+                                   Range const &) const;
 
   void
   do_cell_integral(IntegratorCell & integrator) const override;

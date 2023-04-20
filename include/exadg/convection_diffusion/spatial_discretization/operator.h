@@ -35,7 +35,7 @@
 #include <exadg/grid/grid.h>
 #include <exadg/grid/grid_motion_interface.h>
 #include <exadg/matrix_free/matrix_free_data.h>
-#include <exadg/operators/generalized_laplace_operator/generalized_laplace_operator.h>
+#include <exadg/operators/generalized_laplace_operator.h>
 #include <exadg/operators/inverse_mass_operator.h>
 #include <exadg/operators/mass_operator.h>
 #include <exadg/operators/rhs_operator.h>

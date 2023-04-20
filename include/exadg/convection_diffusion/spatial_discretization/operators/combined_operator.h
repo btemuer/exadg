@@ -23,7 +23,7 @@
 #define INCLUDE_EXADG_CONVECTION_DIFFUSION_SPATIAL_DISCRETIZATION_OPERATORS_COMBINED_OPERATOR_H_
 
 #include <exadg/convection_diffusion/spatial_discretization/operators/convective_operator.h>
-#include <exadg/operators/generalized_laplace_operator/generalized_laplace_operator.h>
+#include <exadg/operators/generalized_laplace_operator.h>
 #include <exadg/operators/mass_kernel.h>
 
 namespace ExaDG
@@ -58,12 +58,14 @@ public:
   typedef Number value_type;
 
 private:
-  typedef OperatorBase<dim, Number, 1> Base;
+  typedef OperatorBase<dim, Number, 1>  Base;
+  typedef CombinedOperator<dim, Number> This;
 
   typedef typename Base::IntegratorCell IntegratorCell;
   typedef typename Base::IntegratorFace IntegratorFace;
 
   typedef typename Base::VectorType VectorType;
+  typedef typename Base::Range      Range;
 
   typedef dealii::VectorizedArray<Number>                         scalar;
   typedef dealii::Tensor<1, dim, dealii::VectorizedArray<Number>> vector;
@@ -118,6 +120,27 @@ private:
   reinit_face_cell_based(unsigned int const               cell,
                          unsigned int const               face,
                          dealii::types::boundary_id const boundary_id) const override;
+
+  void
+  calculate_diffusivity() const;
+
+  void
+  cell_loop_set_diffusivity(dealii::MatrixFree<dim, Number> const &,
+                             VectorType &,
+                             VectorType const &,
+                             Range const &) const;
+
+  void
+  face_loop_set_diffusivity(dealii::MatrixFree<dim, Number> const &,
+                             VectorType &,
+                             VectorType const &,
+                             Range const &) const;
+
+  void
+  cell_based_loop_set_diffusivity(dealii::MatrixFree<dim, Number> const &,
+                                   VectorType &,
+                                   VectorType const &,
+                                   Range const &) const;
 
   void
   do_cell_integral(IntegratorCell & integrator) const override;
