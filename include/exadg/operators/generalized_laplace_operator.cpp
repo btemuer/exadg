@@ -104,6 +104,14 @@ Operator<dim, Number, n_components, coupling_coefficient>::reinit_face_cell_base
 
 template<int dim, typename Number, int n_components, bool coupling_coefficient>
 void
+Operator<dim, Number, n_components, coupling_coefficient>::update_after_grid_motion()
+{
+  kernel->calculate_penalty_parameter(*this->matrix_free, operator_data.dof_index);
+  calculate_coefficients();
+}
+
+template<int dim, typename Number, int n_components, bool coupling_coefficient>
+void
 Operator<dim, Number, n_components, coupling_coefficient>::calculate_coefficients()
 {
   VectorType dummy;

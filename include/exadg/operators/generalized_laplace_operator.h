@@ -529,6 +529,9 @@ public:
   void
   calculate_coefficients();
 
+  void
+  update_after_grid_motion();
+
 private:
   void
   reinit_face(unsigned int face) const override;

@@ -855,11 +855,10 @@ Operator<dim, Number>::update_after_grid_motion()
   // of elements
   if(param.diffusive_problem())
   {
-    diffusive_kernel->calculate_penalty_parameter(*matrix_free, get_dof_index());
-
-    // Do not update diffusivity after mesh deformation, i.e. assume that the diffusivity is based
-    // on the initial spatial coordinates, and not on the current position.
-    // TODO : discuss on this matter
+    if(param.use_combined_operator)
+      combined_operator.update_after_grid_motion();
+    else
+      diffusive_operator.update_after_grid_motion();
   }
 }
 
