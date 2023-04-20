@@ -81,14 +81,14 @@ public:
          KernelData<dim> const &                 data_in,
          unsigned int const                      dof_index,
          unsigned int const                      quad_index,
-         bool const                              cell_based_face_loops)
+         bool const                              use_cell_based_face_loops)
   {
     data   = data_in;
     degree = matrix_free.get_dof_handler(dof_index).get_fe().degree;
 
     calculate_penalty_parameter(matrix_free, dof_index);
 
-    coefficients.initialize(matrix_free, quad_index, true, false, cell_based_face_loops);
+    coefficients.initialize(matrix_free, quad_index, true, false, use_cell_based_face_loops);
   }
 
   static IntegratorFlags
