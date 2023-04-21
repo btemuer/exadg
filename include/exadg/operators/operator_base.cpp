@@ -625,8 +625,6 @@ OperatorBase<dim, Number, n_components>::apply_add_block_diagonal_elementwise(
       else // boundary face
       {
         this->do_boundary_integral_cell_based(*integrator_m, OperatorType::homogeneous, bid);
-        // TODO make this cell-based just like do_face_int AMK
-        // add do_boundary_integral_cell_based to the combined operator
       }
 
       integrator_m->integrate(integrator_flags.face_integrate);
