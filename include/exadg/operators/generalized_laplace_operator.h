@@ -88,7 +88,7 @@ public:
 
     calculate_penalty_parameter(matrix_free, dof_index);
 
-    coefficients.initialize(matrix_free, quad_index, true, false, use_cell_based_face_loops);
+    coefficients.initialize(matrix_free, quad_index, true, use_cell_based_face_loops);
   }
 
   static IntegratorFlags
