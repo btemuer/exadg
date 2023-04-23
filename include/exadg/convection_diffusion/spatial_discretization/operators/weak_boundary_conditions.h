@@ -150,8 +150,8 @@ template<int dim, typename Number>
 inline DEAL_II_ALWAYS_INLINE //
   dealii::VectorizedArray<Number>
   calculate_interior_normal_derivative(unsigned int const                     q,
-                                     FaceIntegrator<dim, 1, Number> const & integrator,
-                                     OperatorType const &                   operator_type)
+                                       FaceIntegrator<dim, 1, Number> const & integrator,
+                                       OperatorType const &                   operator_type)
 {
   dealii::VectorizedArray<Number> normal_derivative_m = 0.0;
 

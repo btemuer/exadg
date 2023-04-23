@@ -44,8 +44,6 @@ static inline DEAL_II_ALWAYS_INLINE //
     return coeff * x;
 }
 
-namespace Operators
-{
 template<int dim>
 struct KernelData
 {
@@ -305,7 +303,6 @@ private:
   dealii::AlignedVector<scalar>                  penalty_parameters{};
   mutable VariableCoefficients<coefficient_type> coefficients{};
 };
-} // namespace Operators
 
 namespace Boundary
 {
@@ -482,7 +479,7 @@ struct WeakBoundaryConditions
 template<int dim>
 struct OperatorData : public OperatorBaseData
 {
-  Operators::KernelData<dim> kernel_data{};
+  KernelData<dim> kernel_data{};
 
   std::shared_ptr<Boundary::BoundaryDescriptor<dim>> bc{};
 };
@@ -520,11 +517,10 @@ public:
              OperatorData<dim> const &                 data);
 
   void
-  initialize(
-    dealii::MatrixFree<dim, Number> const &   matrix_free,
-    dealii::AffineConstraints<Number> const & affine_constraints,
-    OperatorData<dim> const &                 data_in,
-    std::shared_ptr<Operators::Kernel<dim, Number, n_components, coupling_coefficient>> kernel_in);
+  initialize(dealii::MatrixFree<dim, Number> const &   matrix_free,
+             dealii::AffineConstraints<Number> const & affine_constraints,
+             OperatorData<dim> const &                 data_in,
+             std::shared_ptr<Kernel<dim, Number, n_components, coupling_coefficient>> kernel_in);
 
   void
   calculate_coefficients();
@@ -590,7 +586,7 @@ private:
 
   OperatorData<dim> operator_data;
 
-  std::shared_ptr<Operators::Kernel<dim, Number, n_components, coupling_coefficient>> kernel;
+  std::shared_ptr<Kernel<dim, Number, n_components, coupling_coefficient>> kernel;
 };
 } // namespace GeneralizedLaplace
 } // namespace ExaDG

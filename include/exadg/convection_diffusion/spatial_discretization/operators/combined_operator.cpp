@@ -58,7 +58,7 @@ CombinedOperator<dim, Number>::initialize(
 
   if(operator_data.diffusive_problem)
   {
-    diffusive_kernel = std::make_shared<GeneralizedLaplace::Operators::Kernel<dim, Number>>();
+    diffusive_kernel = std::make_shared<GeneralizedLaplace::Kernel<dim, Number>>();
     diffusive_kernel->reinit(matrix_free,
                              data.diffusive_kernel_data,
                              data.dof_index,
@@ -82,11 +82,11 @@ CombinedOperator<dim, Number>::initialize(
 template<int dim, typename Number>
 void
 CombinedOperator<dim, Number>::initialize(
-  dealii::MatrixFree<dim, Number> const &                             matrix_free,
-  dealii::AffineConstraints<Number> const &                           affine_constraints,
-  CombinedOperatorData<dim> const &                                   data,
-  std::shared_ptr<Operators::ConvectiveKernel<dim, Number>>           convective_kernel_in,
-  std::shared_ptr<GeneralizedLaplace::Operators::Kernel<dim, Number>> diffusive_kernel_in)
+  dealii::MatrixFree<dim, Number> const &                   matrix_free,
+  dealii::AffineConstraints<Number> const &                 affine_constraints,
+  CombinedOperatorData<dim> const &                         data,
+  std::shared_ptr<Operators::ConvectiveKernel<dim, Number>> convective_kernel_in,
+  std::shared_ptr<GeneralizedLaplace::Kernel<dim, Number>>  diffusive_kernel_in)
 {
   operator_data = data;
 

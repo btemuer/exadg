@@ -68,7 +68,7 @@ OperatorCoupled<dim, Number>::fill_matrix_free_data(
      SchurComplementPreconditioner::PressureConvectionDiffusion)
   {
     matrix_free_data.append_mapping_flags(
-      GeneralizedLaplace::Operators::Kernel<dim, Number>::get_mapping_flags(true, true));
+      GeneralizedLaplace::Kernel<dim, Number>::get_mapping_flags(true, true));
   }
 }
 
@@ -727,7 +727,7 @@ OperatorCoupled<dim, Number>::setup_pressure_convection_diffusion_operator()
   // diffusive operator:
   // take interior penalty factor of diffusivity of viscous operator, but use polynomial degree of
   // pressure shape functions.
-  GeneralizedLaplace::Operators::KernelData<dim> diffusive_kernel_data;
+  GeneralizedLaplace::KernelData<dim> diffusive_kernel_data;
   diffusive_kernel_data.IP_factor = this->param.IP_factor_viscous;
   // Note: the diffusive operator is initialized with constant viscosity. In case of spatially (and
   // temporally) varying viscosities the diffusive operator has to be extended so that it can deal

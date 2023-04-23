@@ -142,8 +142,8 @@ MultigridPreconditioner<dim, Number>::fill_matrix_free_data(
       Operators::ConvectiveKernel<dim, Number>::get_mapping_flags());
   if(data.diffusive_problem)
     matrix_free_data.append_mapping_flags(
-      GeneralizedLaplace::Operators::Kernel<dim, Number>::get_mapping_flags(
-        this->level_info[level].is_dg(), this->level_info[level].is_dg()));
+      GeneralizedLaplace::Kernel<dim, Number>::get_mapping_flags(this->level_info[level].is_dg(),
+                                                                 this->level_info[level].is_dg()));
 
   if(data.use_cell_based_loops && this->level_info[level].is_dg())
   {

@@ -100,7 +100,7 @@ Operator<dim, Number>::fill_matrix_free_data(MatrixFreeData<dim, Number> & matri
   if(param.diffusive_problem())
   {
     matrix_free_data.append_mapping_flags(
-      GeneralizedLaplace::Operators::Kernel<dim, Number>::get_mapping_flags(true, true));
+      GeneralizedLaplace::Kernel<dim, Number>::get_mapping_flags(true, true));
   }
 
   // dealii::DoFHandler, dealii::AffineConstraints
@@ -186,7 +186,7 @@ Operator<dim, Number>::setup(std::shared_ptr<dealii::MatrixFree<dim, Number>> ma
 
   // diffusive operator
 
-  GeneralizedLaplace::Operators::KernelData<dim> diffusive_kernel_data;
+  GeneralizedLaplace::KernelData<dim> diffusive_kernel_data;
 
   if(param.diffusive_problem())
   {
@@ -194,7 +194,7 @@ Operator<dim, Number>::setup(std::shared_ptr<dealii::MatrixFree<dim, Number>> ma
     diffusive_kernel_data.coefficient_function =
       std::make_shared<dealii::Functions::ConstantFunction<dim>>(param.diffusivity);
 
-    diffusive_kernel = std::make_shared<GeneralizedLaplace::Operators::Kernel<dim, Number>>();
+    diffusive_kernel = std::make_shared<GeneralizedLaplace::Kernel<dim, Number>>();
     diffusive_kernel->reinit(*matrix_free,
                              diffusive_kernel_data,
                              get_dof_index(),

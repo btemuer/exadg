@@ -45,8 +45,8 @@ struct CombinedOperatorData : public OperatorBaseData
   bool convective_problem;
   bool diffusive_problem;
 
-  Operators::ConvectiveKernelData<dim>           convective_kernel_data;
-  GeneralizedLaplace::Operators::KernelData<dim> diffusive_kernel_data;
+  Operators::ConvectiveKernelData<dim> convective_kernel_data;
+  GeneralizedLaplace::KernelData<dim>  diffusive_kernel_data;
 
   std::shared_ptr<BoundaryDescriptor<dim> const> bc;
 };
@@ -79,11 +79,11 @@ public:
              CombinedOperatorData<dim> const &         data);
 
   void
-  initialize(dealii::MatrixFree<dim, Number> const &                             matrix_free,
-             dealii::AffineConstraints<Number> const &                           affine_constraints,
-             CombinedOperatorData<dim> const &                                   data,
-             std::shared_ptr<Operators::ConvectiveKernel<dim, Number>>           convective_kernel,
-             std::shared_ptr<GeneralizedLaplace::Operators::Kernel<dim, Number>> diffusive_kernel);
+  initialize(dealii::MatrixFree<dim, Number> const &                   matrix_free,
+             dealii::AffineConstraints<Number> const &                 affine_constraints,
+             CombinedOperatorData<dim> const &                         data,
+             std::shared_ptr<Operators::ConvectiveKernel<dim, Number>> convective_kernel,
+             std::shared_ptr<GeneralizedLaplace::Kernel<dim, Number>>  diffusive_kernel);
 
   CombinedOperatorData<dim> const &
   get_data() const;
@@ -126,21 +126,21 @@ private:
 
   void
   cell_loop_set_diffusivity(dealii::MatrixFree<dim, Number> const &,
-                             VectorType &,
-                             VectorType const &,
-                             Range const &) const;
+                            VectorType &,
+                            VectorType const &,
+                            Range const &) const;
 
   void
   face_loop_set_diffusivity(dealii::MatrixFree<dim, Number> const &,
-                             VectorType &,
-                             VectorType const &,
-                             Range const &) const;
+                            VectorType &,
+                            VectorType const &,
+                            Range const &) const;
 
   void
   cell_based_loop_set_diffusivity(dealii::MatrixFree<dim, Number> const &,
-                                   VectorType &,
-                                   VectorType const &,
-                                   Range const &) const;
+                                  VectorType &,
+                                  VectorType const &,
+                                  Range const &) const;
 
   void
   do_cell_integral(IntegratorCell & integrator) const override;
@@ -172,9 +172,9 @@ private:
 
   CombinedOperatorData<dim> operator_data;
 
-  std::shared_ptr<MassKernel<dim, Number>>                            mass_kernel;
-  std::shared_ptr<Operators::ConvectiveKernel<dim, Number>>           convective_kernel;
-  std::shared_ptr<GeneralizedLaplace::Operators::Kernel<dim, Number>> diffusive_kernel;
+  std::shared_ptr<MassKernel<dim, Number>>                  mass_kernel;
+  std::shared_ptr<Operators::ConvectiveKernel<dim, Number>> convective_kernel;
+  std::shared_ptr<GeneralizedLaplace::Kernel<dim, Number>>  diffusive_kernel;
 
   double scaling_factor_mass;
 };
