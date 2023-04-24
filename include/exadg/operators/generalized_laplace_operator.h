@@ -185,10 +185,10 @@ public:
     value_type const    jump_value  = value_m - value_p;
     gradient_type const jump_tensor = outer_product(jump_value, normal);
 
-    value_type const average_coeff_times_normal_gradient =
+    value_type const average_coeff_times_gradient_times_normal =
       0.5 * (coeff_times_gradient_times_normal_m + coeff_times_gradient_times_normal_p);
 
-    return -(average_coeff_times_normal_gradient -
+    return -(average_coeff_times_gradient_times_normal -
              value_type(coeff_mult(coefficient, (tau * jump_tensor)) * normal));
   }
 
@@ -523,7 +523,7 @@ public:
              std::shared_ptr<Kernel<dim, Number, n_components, coupling_coefficient>> kernel_in);
 
   void
-  calculate_coefficients();
+  calculate_coefficients() const;
 
   void
   update_after_grid_motion();
@@ -582,7 +582,7 @@ private:
   void
   do_boundary_integral_cell_based(IntegratorFace &                   integrator,
                                   OperatorType const &               operator_type,
-                                  dealii::types::boundary_id const & boundary_id) const;
+                                  dealii::types::boundary_id const & boundary_id) const override;
 
   OperatorData<dim> operator_data;
 

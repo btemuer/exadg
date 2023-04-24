@@ -111,7 +111,7 @@ Operator<dim, Number, n_components, coupling_coefficient>::update_after_grid_mot
 
 template<int dim, typename Number, int n_components, bool coupling_coefficient>
 void
-Operator<dim, Number, n_components, coupling_coefficient>::calculate_coefficients()
+Operator<dim, Number, n_components, coupling_coefficient>::calculate_coefficients() const
 {
   VectorType dummy;
   this->matrix_free->loop(&This::cell_loop_set_coefficients,
@@ -393,14 +393,14 @@ Operator<dim, Number, n_components, coupling_coefficient>::do_boundary_integral(
     gradient_type const gradient_flux =
       kernel->calculate_gradient_flux(value_m, value_p, normal_m, coefficient);
 
-    value_type const coeff_times_normal_gradient_m =
+    value_type const coeff_times_gradient_times_normal_m =
       BC::calculate_interior_coeff_times_gradient_times_normal(q,
                                                                integrator,
                                                                operator_type,
                                                                coefficient);
 
-    value_type const coeff_times_normal_gradient_p =
-      BC::calculate_exterior_coeff_times_gradient_times_normal(coeff_times_normal_gradient_m,
+    value_type const coeff_times_gradient_times_normal_p =
+      BC::calculate_exterior_coeff_times_gradient_times_normal(coeff_times_gradient_times_normal_m,
                                                                q,
                                                                integrator,
                                                                operator_type,
@@ -409,8 +409,8 @@ Operator<dim, Number, n_components, coupling_coefficient>::do_boundary_integral(
                                                                operator_data.bc,
                                                                this->time);
 
-    value_type const value_flux = kernel->calculate_value_flux(coeff_times_normal_gradient_m,
-                                                               coeff_times_normal_gradient_p,
+    value_type const value_flux = kernel->calculate_value_flux(coeff_times_gradient_times_normal_m,
+                                                               coeff_times_gradient_times_normal_p,
                                                                value_m,
                                                                value_p,
                                                                normal_m,
@@ -452,14 +452,14 @@ Operator<dim, Number, n_components, coupling_coefficient>::do_boundary_integral_
     gradient_type const gradient_flux =
       kernel->calculate_gradient_flux(value_m, value_p, normal_m, coefficient);
 
-    value_type const coeff_times_normal_gradient_m =
+    value_type const coeff_times_gradient_times_normal_m =
       BC::calculate_interior_coeff_times_gradient_times_normal(q,
                                                                integrator,
                                                                operator_type,
                                                                coefficient);
 
-    value_type const coeff_times_normal_gradient_p =
-      BC::calculate_exterior_coeff_times_gradient_times_normal(coeff_times_normal_gradient_m,
+    value_type const coeff_times_gradient_times_normal_p =
+      BC::calculate_exterior_coeff_times_gradient_times_normal(coeff_times_gradient_times_normal_m,
                                                                q,
                                                                integrator,
                                                                operator_type,
@@ -468,8 +468,8 @@ Operator<dim, Number, n_components, coupling_coefficient>::do_boundary_integral_
                                                                operator_data.bc,
                                                                this->time);
 
-    value_type const value_flux = kernel->calculate_value_flux(coeff_times_normal_gradient_m,
-                                                               coeff_times_normal_gradient_p,
+    value_type const value_flux = kernel->calculate_value_flux(coeff_times_gradient_times_normal_m,
+                                                               coeff_times_gradient_times_normal_p,
                                                                value_m,
                                                                value_p,
                                                                normal_m,
