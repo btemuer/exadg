@@ -147,9 +147,9 @@ public:
                                      value_type const &       value_p,
                                      coefficient_type const & coefficient)
   {
-    AssertThrow(not coupling_coefficient,
-                dealii::ExcMessage("Normal derivative flux only makes"
-                                   "sense with non-coupling coefficients."));
+    Assert(not coupling_coefficient,
+           dealii::ExcMessage("Normal derivative flux only makes"
+                              "sense with non-coupling coefficients."));
 
     value_type const jump_value = value_m - value_p;
 
