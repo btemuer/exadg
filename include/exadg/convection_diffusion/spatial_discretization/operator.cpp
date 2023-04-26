@@ -281,7 +281,6 @@ Operator<dim, Number>::setup(std::shared_ptr<dealii::MatrixFree<dim, Number>> ma
         get_quad_index_overintegration() :
         get_quad_index();
 
-
     combined_operator.initialize(*matrix_free,
                                  affine_constraints,
                                  combined_operator_data,
