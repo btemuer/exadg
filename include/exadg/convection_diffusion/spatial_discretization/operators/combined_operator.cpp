@@ -337,9 +337,9 @@ CombinedOperator<dim, Number>::do_cell_integral(IntegratorCell & integrator) con
   for(unsigned int q = 0; q < integrator.n_q_points; ++q)
   {
     vector gradient_flux;
-    scalar value_flux = 0.0;
+    scalar value_flux = dealii::make_vectorized_array<Number>(0.0);
 
-    scalar value = 0.0;
+    scalar value = dealii::make_vectorized_array<Number>(0.0);
     if(this->integrator_flags.cell_evaluate & dealii::EvaluationFlags::values)
       value = integrator.get_value(q);
 
@@ -394,13 +394,13 @@ CombinedOperator<dim, Number>::do_face_integral(IntegratorFace & integrator_m,
 {
   for(unsigned int q = 0; q < integrator_m.n_q_points; ++q)
   {
-    scalar const value_m = integrator_m.get_value(q);
-    scalar const value_p = integrator_p.get_value(q);
+    scalar value_m = integrator_m.get_value(q);
+    scalar value_p = integrator_p.get_value(q);
 
-    vector const normal_m = integrator_m.get_normal_vector(q);
+    vector normal_m = integrator_m.get_normal_vector(q);
 
-    scalar value_flux_m = 0.0;
-    scalar value_flux_p = 0.0;
+    scalar value_flux_m = dealii::make_vectorized_array<Number>(0.0);
+    scalar value_flux_p = dealii::make_vectorized_array<Number>(0.0);
 
     if(operator_data.convective_problem)
     {
@@ -417,12 +417,12 @@ CombinedOperator<dim, Number>::do_face_integral(IntegratorFace & integrator_m,
 
     if(operator_data.diffusive_problem)
     {
-      scalar const normal_derivative_m = integrator_m.get_normal_derivative(q);
-      scalar const normal_derivative_p = integrator_p.get_normal_derivative(q);
+      scalar normal_gradient_m = integrator_m.get_normal_derivative(q);
+      scalar normal_gradient_p = integrator_p.get_normal_derivative(q);
 
       scalar const value_flux =
-        diffusive_kernel->calculate_value_flux(diffusivity * normal_derivative_m,
-                                               diffusivity * normal_derivative_p,
+        diffusive_kernel->calculate_value_flux(diffusivity * normal_gradient_m,
+                                               diffusivity * normal_gradient_p,
                                                value_m,
                                                value_p,
                                                normal_m,
@@ -475,11 +475,11 @@ CombinedOperator<dim, Number>::do_face_int_integral(IntegratorFace & integrator_
     if(operator_data.diffusive_problem)
     {
       // set exterior value to zero
-      scalar const normal_derivative_m = integrator_m.get_normal_derivative(q);
-      scalar const normal_derivative_p = 0.0;
+      scalar normal_gradient_m = integrator_m.get_normal_derivative(q);
+      scalar normal_gradient_p = dealii::make_vectorized_array<Number>(0.0);
 
-      value_flux += diffusive_kernel->calculate_value_flux(diffusivity * normal_derivative_m,
-                                                           normal_derivative_p, // is zero
+      value_flux += diffusive_kernel->calculate_value_flux(diffusivity * normal_gradient_m,
+                                                           normal_gradient_p, // is zero
                                                            value_m,
                                                            value_p,
                                                            normal_m,
@@ -509,12 +509,12 @@ CombinedOperator<dim, Number>::do_face_int_integral_cell_based(IntegratorFace & 
   for(unsigned int q = 0; q < integrator_m.n_q_points; ++q)
   {
     // set value_p to zero
-    scalar const value_p = 0.0;
-    scalar const value_m = integrator_m.get_value(q);
+    scalar value_p = dealii::make_vectorized_array<Number>(0.0);
+    scalar value_m = integrator_m.get_value(q);
 
-    vector const normal_m = integrator_m.get_normal_vector(q);
+    vector normal_m = integrator_m.get_normal_vector(q);
 
-    scalar value_flux = 0.0;
+    scalar value_flux = dealii::make_vectorized_array<Number>(0.0);
 
     if(operator_data.convective_problem)
     {
@@ -537,12 +537,12 @@ CombinedOperator<dim, Number>::do_face_int_integral_cell_based(IntegratorFace & 
 
     if(operator_data.diffusive_problem)
     {
-      scalar const normal_derivative_m = integrator_m.get_normal_derivative(q);
       // set exterior value to zero
-      scalar const normal_derivative_p = 0.0;
+      scalar normal_gradient_m = integrator_m.get_normal_derivative(q);
+      scalar normal_gradient_p = dealii::make_vectorized_array<Number>(0.0);
 
-      value_flux += diffusive_kernel->calculate_value_flux(diffusivity * normal_derivative_m,
-                                                           normal_derivative_p, // is zero
+      value_flux += diffusive_kernel->calculate_value_flux(diffusivity * normal_gradient_m,
+                                                           normal_gradient_p, // is zero
                                                            value_m,
                                                            value_p,
                                                            normal_m,
@@ -570,13 +570,13 @@ CombinedOperator<dim, Number>::do_face_ext_integral(IntegratorFace & integrator_
   for(unsigned int q = 0; q < integrator_p.n_q_points; ++q)
   {
     // set value_m to zero
-    scalar const value_m = 0.0;
-    scalar const value_p = integrator_p.get_value(q);
+    scalar value_m = dealii::make_vectorized_array<Number>(0.0);
+    scalar value_p = integrator_p.get_value(q);
 
     // n⁺ = -n⁻
-    vector const normal_p = -integrator_p.get_normal_vector(q);
+    vector normal_p = -integrator_p.get_normal_vector(q);
 
-    scalar value_flux = 0.0;
+    scalar value_flux = dealii::make_vectorized_array<Number>(0.0);
 
     if(operator_data.convective_problem)
     {
@@ -590,13 +590,13 @@ CombinedOperator<dim, Number>::do_face_ext_integral(IntegratorFace & integrator_
 
     if(operator_data.diffusive_problem)
     {
-      // set normal_derivative_m to zero
-      scalar const normal_derivative_m = 0.0;
-      // minus sign to get the correct derivative with normal vector n⁺ = -n⁻
-      scalar const normal_derivative_p = -integrator_p.get_normal_derivative(q);
+      // set gradient_m to zero
+      scalar normal_gradient_m = dealii::make_vectorized_array<Number>(0.0);
+      // minus sign to get the correct normal vector n⁺ = -n⁻
+      scalar normal_gradient_p = -integrator_p.get_normal_derivative(q);
 
-      value_flux += diffusive_kernel->calculate_value_flux(diffusivity * normal_derivative_p,
-                                                           normal_derivative_m, // is zero
+      value_flux += diffusive_kernel->calculate_value_flux(diffusivity * normal_gradient_p,
+                                                           normal_gradient_m, // is zero
                                                            value_p,
                                                            value_m,
                                                            normal_p,
@@ -636,9 +636,9 @@ CombinedOperator<dim, Number>::do_boundary_integral(
                                               operator_data.bc,
                                               this->time);
 
-    vector const normal_m = integrator_m.get_normal_vector(q);
+    vector normal_m = integrator_m.get_normal_vector(q);
 
-    scalar value_flux = 0.0;
+    scalar value_flux = dealii::make_vectorized_array<Number>(0.0);
 
     if(operator_data.convective_problem)
     {
@@ -655,19 +655,18 @@ CombinedOperator<dim, Number>::do_boundary_integral(
 
     if(operator_data.diffusive_problem)
     {
-      scalar const normal_derivative_m =
-        calculate_interior_normal_derivative(q, integrator_m, operator_type);
-      scalar const normal_derivative_p = calculate_exterior_normal_derivative(normal_derivative_m,
-                                                                              q,
-                                                                              integrator_m,
-                                                                              operator_type,
-                                                                              boundary_type,
-                                                                              boundary_id,
-                                                                              operator_data.bc,
-                                                                              this->time);
+      scalar normal_gradient_m = calculate_interior_normal_gradient(q, integrator_m, operator_type);
+      scalar normal_gradient_p = calculate_exterior_normal_gradient(normal_gradient_m,
+                                                                    q,
+                                                                    integrator_m,
+                                                                    operator_type,
+                                                                    boundary_type,
+                                                                    boundary_id,
+                                                                    operator_data.bc,
+                                                                    this->time);
 
-      value_flux += diffusive_kernel->calculate_value_flux(diffusivity * normal_derivative_m,
-                                                           diffusivity * normal_derivative_p,
+      value_flux += diffusive_kernel->calculate_value_flux(diffusivity * normal_gradient_m,
+                                                           diffusivity * normal_gradient_p,
                                                            value_m,
                                                            value_p,
                                                            normal_m,
@@ -696,17 +695,17 @@ CombinedOperator<dim, Number>::do_boundary_integral_cell_based(
 
   for(unsigned int q = 0; q < integrator_m.n_q_points; ++q)
   {
-    scalar value_m = calculate_interior_value(q, integrator_m, operator_type);
-    scalar value_p = calculate_exterior_value(value_m,
-                                              q,
-                                              integrator_m,
-                                              operator_type,
-                                              boundary_type,
-                                              boundary_id,
-                                              operator_data.bc,
-                                              this->time);
+    scalar const value_m = calculate_interior_value(q, integrator_m, operator_type);
+    scalar const value_p = calculate_exterior_value(value_m,
+                                                    q,
+                                                    integrator_m,
+                                                    operator_type,
+                                                    boundary_type,
+                                                    boundary_id,
+                                                    operator_data.bc,
+                                                    this->time);
 
-    vector normal_m = integrator_m.get_normal_vector(q);
+    vector const normal_m = integrator_m.get_normal_vector(q);
 
     scalar value_flux = 0.0;
 
@@ -726,19 +725,19 @@ CombinedOperator<dim, Number>::do_boundary_integral_cell_based(
 
     if(operator_data.diffusive_problem)
     {
-      scalar normal_derivative_m =
-        calculate_interior_normal_derivative(q, integrator_m, operator_type);
-      scalar normal_derivative_p = calculate_exterior_normal_derivative(normal_derivative_m,
-                                                                        q,
-                                                                        integrator_m,
-                                                                        operator_type,
-                                                                        boundary_type,
-                                                                        boundary_id,
-                                                                        operator_data.bc,
-                                                                        this->time);
+      scalar const normal_gradient_m =
+        calculate_interior_normal_gradient(q, integrator_m, operator_type);
+      scalar const normal_gradient_p = calculate_exterior_normal_gradient(normal_gradient_m,
+                                                                          q,
+                                                                          integrator_m,
+                                                                          operator_type,
+                                                                          boundary_type,
+                                                                          boundary_id,
+                                                                          operator_data.bc,
+                                                                          this->time);
 
-      value_flux += diffusive_kernel->calculate_value_flux(diffusivity * normal_derivative_m,
-                                                           diffusivity * normal_derivative_p,
+      value_flux += diffusive_kernel->calculate_value_flux(diffusivity * normal_gradient_m,
+                                                           diffusivity * normal_gradient_p,
                                                            value_m,
                                                            value_p,
                                                            normal_m,
