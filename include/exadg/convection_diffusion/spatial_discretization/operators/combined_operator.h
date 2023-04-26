@@ -108,18 +108,18 @@ public:
 
 private:
   void
-  reinit_cell(unsigned int const cell) const override;
+  reinit_cell(unsigned int const cell) const;
 
   void
-  reinit_face(unsigned int const face) const override;
+  reinit_face(unsigned int const face) const;
 
   void
-  reinit_boundary_face(unsigned int const face) const override;
+  reinit_boundary_face(unsigned int const face) const;
 
   void
   reinit_face_cell_based(unsigned int const               cell,
                          unsigned int const               face,
-                         dealii::types::boundary_id const boundary_id) const override;
+                         dealii::types::boundary_id const boundary_id) const;
 
   void
   calculate_diffusivity() const;
@@ -143,27 +143,27 @@ private:
                                   Range const &) const;
 
   void
-  do_cell_integral(IntegratorCell & integrator) const override;
+  do_cell_integral(IntegratorCell & integrator) const;
 
   void
-  do_face_integral(IntegratorFace & integrator_m, IntegratorFace & integrator_p) const override;
+  do_face_integral(IntegratorFace & integrator_m, IntegratorFace & integrator_p) const;
 
   void
-  do_face_int_integral(IntegratorFace & integrator_m, IntegratorFace & integrator_p) const override;
+  do_face_int_integral(IntegratorFace & integrator_m, IntegratorFace & integrator_p) const;
 
   void
-  do_face_ext_integral(IntegratorFace & integrator_m, IntegratorFace & integrator_p) const override;
+  do_face_ext_integral(IntegratorFace & integrator_m, IntegratorFace & integrator_p) const;
 
   void
   do_boundary_integral(IntegratorFace &                   integrator_m,
                        OperatorType const &               operator_type,
-                       dealii::types::boundary_id const & boundary_id) const override;
+                       dealii::types::boundary_id const & boundary_id) const;
 
   // TODO can be removed later once matrix-free evaluation allows accessing neighboring data for
   // cell-based face loops
   void
   do_face_int_integral_cell_based(IntegratorFace & integrator_m,
-                                  IntegratorFace & integrator_p) const override;
+                                  IntegratorFace & integrator_p) const;
 
   void
   do_boundary_integral_cell_based(IntegratorFace &                   integrator_m,
