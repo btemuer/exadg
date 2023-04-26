@@ -110,7 +110,6 @@ SET(TARGET_SRC
      # convection-diffusion equation
      include/exadg/convection_diffusion/user_interface/parameters.cpp
      include/exadg/convection_diffusion/spatial_discretization/operators/convective_operator.cpp
-     include/exadg/convection_diffusion/spatial_discretization/operators/diffusive_operator.cpp
      include/exadg/convection_diffusion/spatial_discretization/operators/combined_operator.cpp
      include/exadg/convection_diffusion/spatial_discretization/operator.cpp
      include/exadg/convection_diffusion/spatial_discretization/interface.cpp
