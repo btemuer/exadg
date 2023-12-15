@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=11"/>
 <meta name="generator" content="Doxygen 1.9.8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>ExaDG: ExaDG::Poisson::Solver&lt; dim, n_components, Number &gt; Class Template Reference</title>
+<title>ExaDG: ExaDG::Acoustics::PostProcessorInterface&lt; Number &gt; Class Template Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -69,35 +69,42 @@ $(function() {
 
 <div id="nav-path" class="navpath">
   <ul>
-<li class="navelem"><a class="el" href="namespaceExaDG.html">ExaDG</a></li><li class="navelem"><b>Poisson</b></li><li class="navelem"><a class="el" href="classExaDG_1_1Poisson_1_1Solver.html">Solver</a></li>  </ul>
+<li class="navelem"><a class="el" href="namespaceExaDG.html">ExaDG</a></li><li class="navelem"><b>Acoustics</b></li><li class="navelem"><a class="el" href="classExaDG_1_1Acoustics_1_1PostProcessorInterface.html">PostProcessorInterface</a></li>  </ul>
 </div>
 </div><!-- top -->
 <div class="header">
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
-<a href="#pub-attribs">Public Attributes</a> &#124;
-<a href="classExaDG_1_1Poisson_1_1Solver-members.html">List of all members</a>  </div>
-  <div class="headertitle"><div class="title">ExaDG::Poisson::Solver&lt; dim, n_components, Number &gt; Class Template Reference</div></div>
+<a href="#pro-types">Protected Types</a> &#124;
+<a href="classExaDG_1_1Acoustics_1_1PostProcessorInterface-members.html">List of all members</a>  </div>
+  <div class="headertitle"><div class="title">ExaDG::Acoustics::PostProcessorInterface&lt; Number &gt; Class Template Reference<span class="mlabels"><span class="mlabel">abstract</span></span></div></div>
 </div><!--header-->
 <div class="contents">
+<div class="dynheader">
+Inheritance diagram for ExaDG::Acoustics::PostProcessorInterface&lt; Number &gt;:</div>
+<div class="dyncontent">
+ <div class="center">
+  <img src="classExaDG_1_1Acoustics_1_1PostProcessorInterface.png" usemap="#ExaDG::Acoustics::PostProcessorInterface_3C_20Number_20_3E_map" alt=""/>
+  <map id="ExaDG::Acoustics::PostProcessorInterface_3C_20Number_20_3E_map" name="ExaDG::Acoustics::PostProcessorInterface_3C_20Number_20_3E_map">
+<area href="classExaDG_1_1Acoustics_1_1PostProcessorBase.html" alt="ExaDG::Acoustics::PostProcessorBase&lt; dim, Number &gt;" shape="rect" coords="0,56,324,80"/>
+<area href="classExaDG_1_1Acoustics_1_1PostProcessor.html" alt="ExaDG::Acoustics::PostProcessor&lt; dim, Number &gt;" shape="rect" coords="0,112,324,136"/>
+  </map>
+</div></div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-methods" name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a490a168753cc1c4b4d6842a044dd9bf7" id="r_a490a168753cc1c4b4d6842a044dd9bf7"><td class="memItemLeft" align="right" valign="top"><a id="a490a168753cc1c4b4d6842a044dd9bf7" name="a490a168753cc1c4b4d6842a044dd9bf7"></a>
-void&#160;</td><td class="memItemRight" valign="bottom"><b>setup</b> (std::shared_ptr&lt; <a class="el" href="classExaDG_1_1Poisson_1_1ApplicationBase.html">ApplicationBase</a>&lt; dim, n_components, Number &gt; &gt; application, MPI_Comm const mpi_comm, bool const is_throughput_study)</td></tr>
-<tr class="separator:a490a168753cc1c4b4d6842a044dd9bf7"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ad706d3a9a3785b2a45ba3dc85d23be55" id="r_ad706d3a9a3785b2a45ba3dc85d23be55"><td class="memItemLeft" align="right" valign="top"><a id="ad706d3a9a3785b2a45ba3dc85d23be55" name="ad706d3a9a3785b2a45ba3dc85d23be55"></a>
+virtual void&#160;</td><td class="memItemRight" valign="bottom"><b>do_postprocessing</b> (BlockVectorType const &amp;solution, double const time=0.0, types::time_step const time_step_number=numbers::steady_timestep)=0</td></tr>
+<tr class="separator:ad706d3a9a3785b2a45ba3dc85d23be55"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-attribs" name="pub-attribs"></a>
-Public Attributes</h2></td></tr>
-<tr class="memitem:a215e8ab2d6f6a2546295e7c575e53769" id="r_a215e8ab2d6f6a2546295e7c575e53769"><td class="memItemLeft" align="right" valign="top"><a id="a215e8ab2d6f6a2546295e7c575e53769" name="a215e8ab2d6f6a2546295e7c575e53769"></a>
-std::shared_ptr&lt; <a class="el" href="classExaDG_1_1Poisson_1_1Operator.html">Operator</a>&lt; dim, n_components, Number &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><b>pde_operator</b></td></tr>
-<tr class="separator:a215e8ab2d6f6a2546295e7c575e53769"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af09a70cbcc99b6882530cf439cea3b5a" id="r_af09a70cbcc99b6882530cf439cea3b5a"><td class="memItemLeft" align="right" valign="top"><a id="af09a70cbcc99b6882530cf439cea3b5a" name="af09a70cbcc99b6882530cf439cea3b5a"></a>
-std::shared_ptr&lt; <a class="el" href="classExaDG_1_1Poisson_1_1PostProcessorBase.html">PostProcessorBase</a>&lt; dim, n_components, Number &gt; &gt;&#160;</td><td class="memItemRight" valign="bottom"><b>postprocessor</b></td></tr>
-<tr class="separator:af09a70cbcc99b6882530cf439cea3b5a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pro-types" name="pro-types"></a>
+Protected Types</h2></td></tr>
+<tr class="memitem:af1ce40e051175907f08e71e5649fa1c8" id="r_af1ce40e051175907f08e71e5649fa1c8"><td class="memItemLeft" align="right" valign="top"><a id="af1ce40e051175907f08e71e5649fa1c8" name="af1ce40e051175907f08e71e5649fa1c8"></a>
+using&#160;</td><td class="memItemRight" valign="bottom"><b>BlockVectorType</b> = dealii::LinearAlgebra::distributed::BlockVector&lt; Number &gt;</td></tr>
+<tr class="separator:af1ce40e051175907f08e71e5649fa1c8"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <hr/>The documentation for this class was generated from the following file:<ul>
-<li>include/exadg/poisson/<a class="el" href="poisson_2driver_8h_source.html">driver.h</a></li>
+<li>include/exadg/acoustic_conservation_equations/postprocessor/<a class="el" href="acoustic__conservation__equations_2postprocessor_2postprocessor__interface_8h_source.html">postprocessor_interface.h</a></li>
 </ul>
 </div><!-- contents -->
 <!-- start footer part -->
